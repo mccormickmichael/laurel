@@ -1,0 +1,2 @@
+troposphere
+boto3
