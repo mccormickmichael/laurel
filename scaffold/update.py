@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# stand up the scaffolding stack
+# update the scaffolding stack
 
 import boto3
 import stack
@@ -10,17 +10,16 @@ cf = boto3.resource('cloudformation')
 
 template = stack.create_template()
 
-stack = cf.create_stack(
-    StackName = 'Scaffold',
+stack = sf.Stack('Scaffold')
+
+stack.update(
     TemplateBody = template,
-    Parameters = [], #TODO will probably have some parameters, yes?
+    Parameters = [],
     Capabilities = ['CAPABILITY_IAM'],
-    TimeoutInMinutes = 10,
+    TimeoutMinutes = 10,
     OnFailure = 'ROLLBACK')
 
-print stack.stack_id
-
-while stack.stack_status == 'CREATE_IN_PROGRESS':
+while stack_status == 'UPDATE_IN_PROGRESS':
     print stack.stack_status, stack.stack_status_reason
     time.sleep(10)
     stack.reload()

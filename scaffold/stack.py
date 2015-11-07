@@ -11,7 +11,7 @@
 # Routing Tables
 
 
-from troposphere import Ref, Tags, Template
+from troposphere import Output, Ref, Tags, Template
 from troposphere.ec2 import InternetGateway, NetworkAcl, NetworkAclEntry, PortRange, Route, RouteTable, Subnet, SubnetNetworkAclAssociation, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment
 
 az_a = 'us-west-2a' # TODO: discover?
@@ -158,6 +158,10 @@ def create_template():
                         RuleAction = 'allow',
                         CidrBlock = '0.0.0.0/0'))
     # TODO: Inbound access from Private Subnets to NAT
+
+    t.add_output([
+        Output('PublicSubnetA', Value = Ref(pub_subnet_a)),
+        Output('PublicSubnetB', Value = Ref(pub_subnet_b))])
     
     return t.to_json()
 

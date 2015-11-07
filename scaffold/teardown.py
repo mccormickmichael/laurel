@@ -6,11 +6,13 @@ import time
 
 cf = boto3.resource('cloudformation')
 
-stack = cf.Stack('scaffold')
+stack = cf.Stack('Scaffold')
 
 stack.delete()
 
-while True:
+while stack.stack_status == 'DELETE_IN_PROGRESS':
     print stack.stack_status, stack.stack_status_reason
     time.sleep(10)
     stack.reload()
+    
+print stack.stack_status, stack.stack_status_reason
