@@ -30,7 +30,7 @@ def create_template():
     vpc = t.add_resource(
         VPC('Scaffold',
             CidrBlock='172.30.0.0/16',
-            Tags = Tags(Application = ref_stack_id)))
+            Tags = Tags(Application = ref_stack_id, Name = 'ScaffoldVPC')))
     pub_subnet_a = t.add_resource(
         Subnet('PublicSubnetA',
                AvailabilityZone = az_a,

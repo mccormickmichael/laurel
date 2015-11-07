@@ -10,16 +10,14 @@ cf = boto3.resource('cloudformation')
 
 template = stack.create_template()
 
-stack = sf.Stack('Scaffold')
+stack = cf.Stack('Scaffold')
 
 stack.update(
     TemplateBody = template,
     Parameters = [],
-    Capabilities = ['CAPABILITY_IAM'],
-    TimeoutMinutes = 10,
-    OnFailure = 'ROLLBACK')
+    Capabilities = ['CAPABILITY_IAM'])
 
-while stack_status == 'UPDATE_IN_PROGRESS':
+while stack.stack_status == 'UPDATE_IN_PROGRESS':
     print stack.stack_status, stack.stack_status_reason
     time.sleep(10)
     stack.reload()
