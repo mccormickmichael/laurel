@@ -1,15 +1,14 @@
 #!/usr/bin/python
 # Stand up the scaffolding stack:
 # VPC (http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/getting-started-create-vpc.html)
-
-
 # Public Subnet A
 # Public Subnet B
+# Routing Tables
+
+# TODO:
 # Private Subnet A
 # Private Subnet B
 # Private Subnet C (what about regions with only 2 AZs?)
-# Routing Tables
-
 
 from troposphere import Output, Ref, Tags, Template
 from troposphere.ec2 import InternetGateway, NetworkAcl, NetworkAclEntry, PortRange, Route, RouteTable, Subnet, SubnetNetworkAclAssociation, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment
@@ -17,6 +16,45 @@ from troposphere.ec2 import InternetGateway, NetworkAcl, NetworkAclEntry, PortRa
 az_a = 'us-west-2a' # TODO: discover?
 az_b = 'us-west-2b'
 az_c = 'us-west-2c'
+
+def allow_rule(prefix, acl_id, egress, rule_number, port_from, port_to = None):
+    if port_to == None:
+        port_to = port_from
+    return NetworkAclEntry(prefix,
+                           NetworkAclId = Ref(acl_id),
+                           RuleNumber = str(rule_number),
+                           Protocol = '6',
+                           PortRange = PortRange(From = port_from, To = port_to),
+                           Egress = str(egress).lower(),
+                           RuleAction = 'allow',
+                           CidrBlock = '0.0.0.0/0')
+
+def allow_ingress(prefix, acl_id, rule_number, port_from, port_to = None):
+    return allow_rule('{0}In'.format(prefix), acl_id, False, rule_number, port_from, port_to)
+
+def allow_egress(prefix, acl_id, rule_number, port_from, port_to = None):
+    return allow_rule('{0}Out'.format(prefix), acl_id, True, rule_number, port_from, port_to)
+
+def allow_http_in(prefix, acl_id, rule_number):
+    return allow_ingress('{0}Http'.format(prefix), acl_id, rule_number, 80)
+
+def allow_https_in(prefix, acl_id, rule_number):
+    return allow_ingress('{0}Https'.format(prefix), acl_id, rule_number, 443)
+
+def allow_ssh_in(prefix, acl_id, rule_number):
+    return allow_ingress('{0}SSH'.format(prefix), acl_id, rule_number, 22)
+
+def allow_return_in(prefix, acl_id, rule_number):
+    return allow_ingress('{0}EphemeralReturn'.format(prefix), acl_id, rule_number, 49152, 65535)
+
+def allow_http_out(prefix, acl_id, rule_number):
+    return allow_egress('{0}Http'.format(prefix), acl_id, rule_number, 80)
+
+def allow_https_out(prefix, acl_id, rule_number):
+    return allow_egress('{0}Https'.format(prefix), acl_id, rule_number, 443)
+
+def allow_return_out(prefix, acl_id, rule_number):
+    return allow_egress('{0}EphemeralReturn'.format(prefix), acl_id, rule_number, 49152, 65535)
 
 def create_template():
 
@@ -93,70 +131,14 @@ def create_template():
               DestinationCidrBlock='0.0.0.0/0'))
 
     # Wire Network ACL rules to Public ACL
-    t.add_resource(
-        NetworkAclEntry('PublicHttpOut',
-                        NetworkAclId = Ref(pub_network_acl),
-                        RuleNumber = '100',
-                        Protocol = '6',
-                        PortRange = PortRange(From = 80, To = 80),
-                        Egress='true',
-                        RuleAction = 'allow',
-                        CidrBlock = '0.0.0.0/0'))
-    t.add_resource(
-        NetworkAclEntry('PublicHttpsOut',
-                        NetworkAclId = Ref(pub_network_acl),
-                        RuleNumber = '101',
-                        Protocol = '6',
-                        PortRange = PortRange(From = 443, To = 443),
-                        Egress='true',
-                        RuleAction = 'allow',
-                        CidrBlock = '0.0.0.0/0'))
-    t.add_resource(
-        NetworkAclEntry('PublicEphemeralOutReturn',
-                        NetworkAclId = Ref(pub_network_acl),
-                        RuleNumber = '200',
-                        Protocol = '6',
-                        PortRange = PortRange(From = 49152, To = 65535),
-                        Egress='true',
-                        RuleAction = 'allow',
-                        CidrBlock = '0.0.0.0/0'))
+    t.add_resource(allow_http_out('Public', pub_network_acl, 100))
+    t.add_resource(allow_https_out('Public', pub_network_acl, 101))
+    t.add_resource(allow_return_out('Public', pub_network_acl, 200))
     # TODO: outbound access to Private Subnets for bastions
-    t.add_resource(
-        NetworkAclEntry('PublicHttpIn',
-                        NetworkAclId = Ref(pub_network_acl),
-                        RuleNumber = '100',
-                        Protocol = '6',
-                        PortRange = PortRange(From = 80, To = 80),
-                        Egress='false',
-                        RuleAction = 'allow',
-                        CidrBlock = '0.0.0.0/0'))
-    t.add_resource(
-        NetworkAclEntry('PublicHttpsIn',
-                        NetworkAclId = Ref(pub_network_acl),
-                        RuleNumber = '101',
-                        Protocol = '6',
-                        PortRange = PortRange(From = 443, To = 443),
-                        Egress='false',
-                        RuleAction = 'allow',
-                        CidrBlock = '0.0.0.0/0'))
-    t.add_resource(
-        NetworkAclEntry('PublicSSHIn',
-                        NetworkAclId = Ref(pub_network_acl),
-                        RuleNumber = '102',
-                        Protocol = '6',
-                        PortRange = PortRange(From = 22, To = 22),
-                        Egress='false',
-                        RuleAction = 'allow',
-                        CidrBlock = '0.0.0.0/0'))
-    t.add_resource(
-        NetworkAclEntry('PublicEphemeralInReturn',
-                        NetworkAclId = Ref(pub_network_acl),
-                        RuleNumber = '200',
-                        Protocol = '6',
-                        PortRange = PortRange(From = 49152, To = 65535),
-                        Egress='false',
-                        RuleAction = 'allow',
-                        CidrBlock = '0.0.0.0/0'))
+    t.add_resource(allow_http_in('Public', pub_network_acl, 100))
+    t.add_resource(allow_https_in('Public', pub_network_acl, 101))
+    t.add_resource(allow_ssh_in('Public', pub_network_acl, 102))
+    t.add_resource(allow_return_in('Public', pub_network_acl, 200))
     # TODO: Inbound access from Private Subnets to NAT
 
     t.add_output([
@@ -167,3 +149,4 @@ def create_template():
 
 if __name__ == "__main__":
     print create_template()
+
