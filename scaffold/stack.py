@@ -17,45 +17,55 @@ az_a = 'us-west-2a' # TODO: discover?
 az_b = 'us-west-2b'
 az_c = 'us-west-2c'
 
-def allow_rule(prefix, acl_id, egress, rule_number, port_from, port_to = None):
-    if port_to == None:
-        port_to = port_from
-    return NetworkAclEntry(prefix,
-                           NetworkAclId = Ref(acl_id),
-                           RuleNumber = str(rule_number),
-                           Protocol = '6',
-                           PortRange = PortRange(From = port_from, To = port_to),
-                           Egress = str(egress).lower(),
-                           RuleAction = 'allow',
-                           CidrBlock = '0.0.0.0/0')
+class RouteBuilder:
+    def __init__(self, tmpl, acl, prefix):
+        self.tmpl = tmpl
+        self.acl = acl
+        self.prefix = prefix
+        self.ingress_rule_number = 100
+        self.egress_rule_number = 100
 
-def allow_ingress(prefix, acl_id, rule_number, port_from, port_to = None):
-    return allow_rule('{0}In'.format(prefix), acl_id, False, rule_number, port_from, port_to)
+    def allow_tcp(self, name, egress, rule_number, cidr_block, port_from, port_to = None):
+        port_to = port_from if not port_to else port_to
+        self.tmpl.add_resource(
+            NetworkAclEntry(name,
+                            NetworkAclId = Ref(self.acl),
+                            RuleNumber = str(rule_number),
+                            Protocol = '6',
+                            PortRange = PortRange(From = port_from, To = port_to),
+                            Egress = str(egress).lower(),
+                            RuleAction = 'allow',
+                            CidrBlock = cidr_block))
 
-def allow_egress(prefix, acl_id, rule_number, port_from, port_to = None):
-    return allow_rule('{0}Out'.format(prefix), acl_id, True, rule_number, port_from, port_to)
+    def allow_tcp_egress(self, name, cidr_block, port_from, port_to = None):
+        self.allow_tcp(name, True, self.egress_rule_number, cidr_block, port_from, port_to)
+        self.egress_rule_number += 1
 
-def allow_http_in(prefix, acl_id, rule_number):
-    return allow_ingress('{0}Http'.format(prefix), acl_id, rule_number, 80)
+    def allow_tcp_ingress(self, name, cidr_block, port_from, port_to = None):
+        self.allow_tcp(name, False, self.ingress_rule_number, cidr_block, port_from, port_to)
+        self.ingress_rule_number += 1
 
-def allow_https_in(prefix, acl_id, rule_number):
-    return allow_ingress('{0}Https'.format(prefix), acl_id, rule_number, 443)
+    def allow_http_in(self, cidr_block = '0.0.0.0/0'):
+        self.allow_tcp_ingress('{0}HttpIn'.format(self.prefix), cidr_block, 80)
 
-def allow_ssh_in(prefix, acl_id, rule_number):
-    return allow_ingress('{0}SSH'.format(prefix), acl_id, rule_number, 22)
+    def allow_https_in(self, cidr_block = '0.0.0.0/0'):
+        self.allow_tcp_ingress('{0}HttpsIn'.format(self.prefix), cidr_block, 443)
 
-def allow_return_in(prefix, acl_id, rule_number):
-    return allow_ingress('{0}EphemeralReturn'.format(prefix), acl_id, rule_number, 49152, 65535)
+    def allow_ssh_in(self, cidr_block = '0.0.0.0/0'):
+        self.allow_tcp_ingress('{0}SSHIn'.format(self.prefix), cidr_block, 22)
 
-def allow_http_out(prefix, acl_id, rule_number):
-    return allow_egress('{0}Http'.format(prefix), acl_id, rule_number, 80)
+    def allow_return_in(self, cidr_block = '0.0.0.0/0'):
+        self.allow_tcp_ingress('{0}EphemeralReturnIn'.format(self.prefix), cidr_block, 49152, 65535)
+        
+    def allow_http_out(self, cidr_block = '0.0.0.0/0'):
+        self.allow_tcp_egress('{0}HttpOut'.format(self.prefix), cidr_block, 80)
 
-def allow_https_out(prefix, acl_id, rule_number):
-    return allow_egress('{0}Https'.format(prefix), acl_id, rule_number, 443)
+    def allow_https_out(self, cidr_block = '0.0.0.0/0'):
+        self.allow_tcp_egress('{0}HttpsOut'.format(self.prefix), cidr_block, 443)
 
-def allow_return_out(prefix, acl_id, rule_number):
-    return allow_egress('{0}EphemeralReturn'.format(prefix), acl_id, rule_number, 49152, 65535)
-
+    def allow_return_out(self, cidr_block = '0.0.0.0/0'):
+        self.allow_tcp_egress('{0}EphemeralReturnOut'.format(self.prefix), cidr_block, 49152, 65535)
+        
 def create_template():
 
     t = Template()
@@ -131,15 +141,17 @@ def create_template():
               DestinationCidrBlock='0.0.0.0/0'))
 
     # Wire Network ACL rules to Public ACL
-    t.add_resource(allow_http_out('Public', pub_network_acl, 100))
-    t.add_resource(allow_https_out('Public', pub_network_acl, 101))
-    t.add_resource(allow_return_out('Public', pub_network_acl, 200))
+    rb = RouteBuilder(t, pub_network_acl, 'Public')
+    rb.allow_http_in()
+    rb.allow_https_in()
+    rb.allow_ssh_in()
+    rb.allow_return_in()
+    rb.allow_http_out()
+    rb.allow_https_out()
+    rb.allow_return_out()
     # TODO: outbound access to Private Subnets for bastions
-    t.add_resource(allow_http_in('Public', pub_network_acl, 100))
-    t.add_resource(allow_https_in('Public', pub_network_acl, 101))
-    t.add_resource(allow_ssh_in('Public', pub_network_acl, 102))
-    t.add_resource(allow_return_in('Public', pub_network_acl, 200))
     # TODO: Inbound access from Private Subnets to NAT
+
 
     t.add_output([
         Output('PublicSubnetA', Value = Ref(pub_subnet_a)),
