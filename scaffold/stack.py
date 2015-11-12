@@ -18,53 +18,42 @@ az_b = 'us-west-2b'
 az_c = 'us-west-2c'
 
 class RouteBuilder:
-    def __init__(self, tmpl, acl, prefix):
+    def __init__(self, tmpl, acl, prefix, action, egress, cidr_block = '0.0.0.0/0'):
+        if action not in ['allow', 'deny']:
+            raise ValueError("'action' must be one of ['allow', 'deny']")
         self.tmpl = tmpl
         self.acl = acl
         self.prefix = prefix
-        self.ingress_rule_number = 100
-        self.egress_rule_number = 100
+        self.action = action
+        self.egress = egress
+        self.cidr_block = cidr_block
+        self.rule_number = 100
 
-    def allow_tcp(self, name, egress, rule_number, cidr_block, port_from, port_to = None):
+    def __add_tcp(self, protocol, port_from, port_to = None):
         port_to = port_from if not port_to else port_to
         self.tmpl.add_resource(
-            NetworkAclEntry(name,
+            NetworkAclEntry('{0}{1}{2}'.format(self.prefix, protocol, 'Out' if self.egress else 'In'),
                             NetworkAclId = Ref(self.acl),
-                            RuleNumber = str(rule_number),
+                            RuleNumber = str(self.rule_number),
                             Protocol = '6',
                             PortRange = PortRange(From = port_from, To = port_to),
-                            Egress = str(egress).lower(),
-                            RuleAction = 'allow',
-                            CidrBlock = cidr_block))
+                            Egress = str(self.egress).lower(),
+                            RuleAction = self.action,
+                            CidrBlock = self.cidr_block))
+        self.rule_number += 1
+        return self
 
-    def allow_tcp_egress(self, name, cidr_block, port_from, port_to = None):
-        self.allow_tcp(name, True, self.egress_rule_number, cidr_block, port_from, port_to)
-        self.egress_rule_number += 1
+    def http(self):
+        return self.__add_tcp('Http', 80)
 
-    def allow_tcp_ingress(self, name, cidr_block, port_from, port_to = None):
-        self.allow_tcp(name, False, self.ingress_rule_number, cidr_block, port_from, port_to)
-        self.ingress_rule_number += 1
+    def https(self):
+        return self.__add_tcp('Https', 443)
 
-    def allow_http_in(self, cidr_block = '0.0.0.0/0'):
-        self.allow_tcp_ingress('{0}HttpIn'.format(self.prefix), cidr_block, 80)
+    def ssh(self):
+        return self.__add_tcp('SSH', 22)
 
-    def allow_https_in(self, cidr_block = '0.0.0.0/0'):
-        self.allow_tcp_ingress('{0}HttpsIn'.format(self.prefix), cidr_block, 443)
-
-    def allow_ssh_in(self, cidr_block = '0.0.0.0/0'):
-        self.allow_tcp_ingress('{0}SSHIn'.format(self.prefix), cidr_block, 22)
-
-    def allow_return_in(self, cidr_block = '0.0.0.0/0'):
-        self.allow_tcp_ingress('{0}EphemeralReturnIn'.format(self.prefix), cidr_block, 49152, 65535)
-        
-    def allow_http_out(self, cidr_block = '0.0.0.0/0'):
-        self.allow_tcp_egress('{0}HttpOut'.format(self.prefix), cidr_block, 80)
-
-    def allow_https_out(self, cidr_block = '0.0.0.0/0'):
-        self.allow_tcp_egress('{0}HttpsOut'.format(self.prefix), cidr_block, 443)
-
-    def allow_return_out(self, cidr_block = '0.0.0.0/0'):
-        self.allow_tcp_egress('{0}EphemeralReturnOut'.format(self.prefix), cidr_block, 49152, 65535)
+    def response(self):
+        return self.__add_tcp('EphemeralReturn', 49152, 65535)
         
 def create_template():
 
@@ -141,14 +130,11 @@ def create_template():
               DestinationCidrBlock='0.0.0.0/0'))
 
     # Wire Network ACL rules to Public ACL
-    rb = RouteBuilder(t, pub_network_acl, 'Public')
-    rb.allow_http_in()
-    rb.allow_https_in()
-    rb.allow_ssh_in()
-    rb.allow_return_in()
-    rb.allow_http_out()
-    rb.allow_https_out()
-    rb.allow_return_out()
+    rb_in = RouteBuilder(t, pub_network_acl, 'Public', 'allow', False)
+    rb_in.http().https().ssh().response()
+
+    rb_out = RouteBuilder(t, pub_network_acl, 'Public', 'allow', True)
+    rb_out.http().https().response()
     # TODO: outbound access to Private Subnets for bastions
     # TODO: Inbound access from Private Subnets to NAT
 
