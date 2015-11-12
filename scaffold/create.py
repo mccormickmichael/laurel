@@ -2,17 +2,17 @@
 
 # stand up the scaffolding stack
 
-import boto3
-import stack
 import time
+import boto3
+import template
 
 cf = boto3.resource('cloudformation')
 
-template = stack.create_template()
+template_body = template.create_template()
 
 stack = cf.create_stack(
     StackName = 'Scaffold',
-    TemplateBody = template,
+    TemplateBody = template_body,
     Parameters = [], #TODO will probably have some parameters, yes?
     Capabilities = ['CAPABILITY_IAM'],
     TimeoutInMinutes = 10,

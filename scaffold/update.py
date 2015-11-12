@@ -2,18 +2,18 @@
 
 # update the scaffolding stack
 
-import boto3
-import stack
 import time
+import boto3
+import template
 
 cf = boto3.resource('cloudformation')
 
-template = stack.create_template()
+template_body = template.create_template()
 
 stack = cf.Stack('Scaffold')
 
 stack.update(
-    TemplateBody = template,
+    TemplateBody = template_body,
     Parameters = [],
     Capabilities = ['CAPABILITY_IAM'])
 

@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # Tear down the scaffolding stack
 
-import boto3
 import time
+import boto3
 
 cf = boto3.resource('cloudformation')
 
