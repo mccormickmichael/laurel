@@ -20,7 +20,7 @@
 
 import sys
 
-from troposphere import FindInMap, GetAZs, Output, Parameter, Ref, Select, Tags, Template
+from troposphere import Base64, FindInMap, GetAtt, GetAZs, Join, Output, Parameter, Ref, Select, Tags, Template
 from troposphere.ec2 import Instance, InternetGateway, NetworkAcl, NetworkAclEntry, NetworkInterfaceProperty, PortRange, Route, RouteTable, SecurityGroup, SecurityGroupRule, Subnet, SubnetNetworkAclAssociation, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment
 
 CIDR_ANY = '0.0.0.0/0'
@@ -190,7 +190,7 @@ class SimpleVPC(object):
         return [
             Parameter(
                 self.PARM_KEY_NAME,
-                Description = "Name of existing key pair to allow access to the bastions server",
+                Description = "Name of existing key pair to allow access to the bastion server",
                 Type = "String"
             ),
             Parameter(
@@ -278,8 +278,8 @@ class SimpleVPC(object):
         self.nat_sg = SecurityGroup('{0}NATSecurityGroup'.format(name_nat),
                                     VpcId = Ref(self.vpc),
                                     GroupDescription = 'NAT Security Group',
-                                    SecurityGroupEgress = sg_ingress.rules(),
-                                    SecurityGroupIngress = sg_egress.rules(),
+                                    SecurityGroupEgress = sg_egress.rules(),
+                                    SecurityGroupIngress = sg_ingress.rules(),
                                     Tags = self.default_tags)
         ni = NetworkInterfaceProperty(
             AssociatePublicIpAddress = True,
@@ -296,8 +296,10 @@ class SimpleVPC(object):
                             InstanceType = 't2.micro',
                             NetworkInterfaces = [ni],
                             Tags = tags,
-                            UserData = 'TODO!')
-
+                            UserData = Base64(Join('\n', [
+                                '#!/bin/bash',
+                                'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
+                                ])))
         return [self.nat_sg, self.nat]
 
 
@@ -337,12 +339,14 @@ class SimpleVPC(object):
 
     def _create_outputs(self):
         return [
-            Output('PublicSubnet', Value = Ref(self.pub_subnet))
+            Output('PublicSubnet', Value = Ref(self.pub_subnet)),
+            Output('NATIP', Value = GetAtt(self.nat, 'PublicIp'))
+            # TODO: IP of the NAT/Bastion
             ]
 
     def _fname(self, fmt):
         return fmt.format(self.name)
 
 if __name__ == '__main__':
-    name = sys.argv[:0]
-    print SimpleVPC(name if name else 'Sample').to_json()
+    name = sys.argv[1] if len(sys.argv) > 1 else 'Simple'
+    print SimpleVPC(name).to_json()
