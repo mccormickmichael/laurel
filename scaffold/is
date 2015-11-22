@@ -1,0 +1,86 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "IAM policies and roles for supporting application stacks",
+    "Resources": {
+        "S3AllPolicy": {
+            "Properties": {
+                "Description": "S3 All Policy",
+                "Path": "/",
+                "PolicyDocument": {
+                    "Statement": [
+                        {
+                            "Action": [
+                                "s3:*"
+                            ],
+                            "Effect": "Allow",
+                            "Resource": [
+                                "arn:aws:s3:::*"
+                            ]
+                        }
+                    ],
+                    "Version": "2012-10-17"
+                }
+            },
+            "Type": "AWS::IAM::ManagedPolicy"
+        },
+        "SimpleIAMBastionInstanceProfile": {
+            "Properties": {
+                "Roles": [
+                    {
+                        "Properties": {
+                            "AssumeRolePolicyDocument": {
+                                "Statement": [
+                                    {
+                                        "Action": [
+                                            "sts:AssumeRole"
+                                        ],
+                                        "Effect": "Allow",
+                                        "Principal": {
+                                            "Service": [
+                                                "ec2.amazonaws.com"
+                                            ]
+                                        }
+                                    }
+                                ],
+                                "Version": "2012-10-17"
+                            },
+                            "ManagedPolicyArns": [
+                                {
+                                    "Ref": "S3AllPolicy"
+                                }
+                            ]
+                        },
+                        "Type": "AWS::IAM::Role"
+                    }
+                ]
+            },
+            "Type": "AWS::IAM::InstanceProfile"
+        },
+        "SimpleIAMBastionRole": {
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Statement": [
+                        {
+                            "Action": [
+                                "sts:AssumeRole"
+                            ],
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "ec2.amazonaws.com"
+                                ]
+                            }
+                        }
+                    ],
+                    "Version": "2012-10-17"
+                },
+                "ManagedPolicyArns": [
+                    {
+                        "Ref": "S3AllPolicy"
+                    }
+                ]
+            },
+            "Type": "AWS::IAM::Role"
+        }
+    }
+}

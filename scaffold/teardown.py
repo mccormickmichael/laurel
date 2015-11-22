@@ -1,12 +1,13 @@
 #!/usr/bin/python
 # Tear down the scaffolding stack
 
+import sys
 import time
 import boto3
 
 cf = boto3.resource('cloudformation')
 
-stack = cf.Stack('Scaffold')
+stack = cf.Stack(sys.argv[1])
 
 stack.delete()
 
