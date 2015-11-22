@@ -49,7 +49,7 @@ class IAM(object):
                                                Path = '/',
                                                PolicyDocument = s3_all_policy_doc)
 
-        bastion_role = Role('{0}BastionRole',
+        bastion_role = Role('BastionRole',
                             AssumeRolePolicyDocument = ec2_assume_role_policy_doc,
                             ManagedPolicyArns = [Ref(s3_all_managed_policy)])
 
@@ -58,7 +58,7 @@ class IAM(object):
 
         return [s3_all_managed_policy, bastion_role, self.bastion_profile]
 
-    def _create_outupts(self):
+    def _create_outputs(self):
         return [
             Output('BastionInstanceProfile', Value = Ref(self.bastion_profile))
         ]
