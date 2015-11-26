@@ -59,3 +59,4 @@ target/
 #emacs and IDEs
 *~
 \#*\#
+.idea
