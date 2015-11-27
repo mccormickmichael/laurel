@@ -24,6 +24,7 @@ from troposphere import Base64, FindInMap, GetAtt, GetAZs, Join, Output, Paramet
 from troposphere.ec2 import Instance, InternetGateway, NetworkAcl, NetworkAclEntry, NetworkInterfaceProperty, PortRange, Route, RouteTable, SecurityGroup, SecurityGroupRule, Subnet, SubnetNetworkAclAssociation, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment
 
 CIDR_ANY = '0.0.0.0/0'
+CIDR_NONE = '0.0.0.0/32'
 
 class ProtocolBuilder(object):
     def __init__(self, parent, cidr = None):
@@ -130,7 +131,7 @@ class NaclBuilder(object):
         self.entries.append(rule)
         
 class SecurityGroupRuleBuilder(ProtocolBuilder):
-    def __init__(self, cidr = CIDR_ANY):
+    def __init__(self, cidr = CIDR_NONE):
         super(SecurityGroupRuleBuilder, self).__init__(self, cidr)
         self._rules = []
 
@@ -158,7 +159,7 @@ class SimpleVPC(object):
     DEFAULT_PARM_PUB_CIDR = '172.16.0.0/24'
     DEFAULT_PARM_PRIV_CIDR = '172.16.1.0/24'
 
-    NAT_AMI_REGION_MAP = 'NatAMIRegionMap'
+    AMI_REGION_MAP = 'AMIRegionMap'
 
     def __init__(self, name, description = 'Simple VPC: 1 public subnet, 1 private subnet'):
         self.name = name
@@ -172,11 +173,12 @@ class SimpleVPC(object):
         t.add_description(description)
         t.add_parameter(self._create_parameters())
         
-        t.add_mapping(self.NAT_AMI_REGION_MAP, self._create_nat_ami_mapping())
+        t.add_mapping(self.AMI_REGION_MAP, self._create_ami_mapping())
         
         t.add_resource(self._create_vpc_with_gateway())
         t.add_resource(self._create_public_subnet())
         t.add_resource(self._create_nat())
+        t.add_resource(self._create_bastion())
         t.add_resource(self._create_private_subnet())
         
         t.add_output(self._create_outputs())
@@ -213,19 +215,19 @@ class SimpleVPC(object):
                 Default = self.DEFAULT_PARM_PRIV_CIDR
             )]
 
-    def _create_nat_ami_mapping(self):
+    def _create_ami_mapping(self):
         return {
-            'us-east-1' : { 'AMI' : 'ami-303b1458' },
-            'us-west-1' : { 'AMI' : 'ami-7da94839' },
-            'us-west-2' : { 'AMI' : 'ami-69ae8259' }
+            'us-east-1' : { 'NAT' : 'ami-303b1458', 'BASTION': 'ami-60b6c60a' },
+            'us-west-1' : { 'NAT' : 'ami-7da94839', 'BASTION': 'ami-d5ea86b5' },
+            'us-west-2' : { 'NAT' : 'ami-69ae8259', 'BASTION': 'ami-f0091d91' }
             #'eu-west-1'
             #'eu-west-2'
             #'eu-central-1'
             #'sa-east-1'
-            #'ap-southeast-1' : 
-            #'ap-southeast-2' : 
-            #'ap-northeast-1' : 
-            }
+            #'ap-southeast-1'
+            #'ap-southeast-2' 
+            #'ap-northeast-1' 
+        }
         
     def _create_vpc_with_gateway(self):
         self.vpc = VPC('{0}VPC'.format(self.name),
@@ -274,8 +276,8 @@ class SimpleVPC(object):
         name_nat = self._fname('{0}NAT')
         tags = self.default_tags + Tags(Name = name_nat)
         sg_ingress = SecurityGroupRuleBuilder(Ref(self.PARM_PRIV_CIDR)).http().https().ssh(CIDR_ANY)
-        sg_egress = SecurityGroupRuleBuilder().http().https()
-        self.nat_sg = SecurityGroup('{0}NATSecurityGroup'.format(name_nat),
+        sg_egress = SecurityGroupRuleBuilder(CIDR_ANY).http().https()
+        self.nat_sg = SecurityGroup('{0}NATSG'.format(name_nat),
                                     VpcId = Ref(self.vpc),
                                     GroupDescription = 'NAT Security Group',
                                     SecurityGroupEgress = sg_egress.rules(),
@@ -287,21 +289,52 @@ class SimpleVPC(object):
             DeviceIndex = 0,
             GroupSet = [Ref(self.nat_sg)],
             SubnetId = Ref(self.pub_subnet)
-            )
+        )
         self.nat = Instance(name_nat,
                             DependsOn = self.vpc.name,
-                            KeyName = Ref(self.PARM_KEY_NAME),
+                            KeyName = Ref(self.PARM_KEY_NAME), #TODO: no login to NAT
                             SourceDestCheck = 'false',
-                            ImageId = FindInMap(self.NAT_AMI_REGION_MAP, self.region_ref, 'AMI'),
+                            ImageId = FindInMap(self.AMI_REGION_MAP, self.region_ref, 'NAT'),
                             InstanceType = 't2.micro',
                             NetworkInterfaces = [ni],
                             Tags = tags,
                             UserData = Base64(Join('\n', [
                                 '#!/bin/bash',
                                 'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
-                                ])))
+                            ])))
         return [self.nat_sg, self.nat]
 
+    def _create_bastion(self):
+        name_bastion = self._fname('{0}Bastion')
+        tags = self.default_tags + Tags(Name = name_bastion)
+        sg_ingress = SecurityGroupRuleBuilder(CIDR_ANY).ssh()
+        sg_egress = SecurityGroupRuleBuilder().ssh(Ref(self.PARM_PRIV_CIDR)).ssh(Ref(self.PARM_PUB_CIDR))
+        self.bastion_sg = SecurityGroup('{0}BastionSG'.format(name_bastion),
+                                        VpcId = Ref(self.vpc),
+                                        GroupDescription = 'Bastion Security Group',
+                                        SecurityGroupEgress = sg_egress.rules(),
+                                        SecurityGroupIngress = sg_ingress.rules(),
+                                        Tags = self.default_tags)
+        ni = NetworkInterfaceProperty(
+            AssociatePublicIpAddress = True,
+            DeleteOnTermination = True,
+            DeviceIndex = 0,
+            GroupSet = [Ref(self.bastion_sg)],
+            SubnetId = Ref(self.pub_subnet)
+        )
+        self.bastion = Instance(name_bastion,
+                                DependsOn = self.vpc.name,
+                                KeyName = Ref(self.PARM_KEY_NAME),
+                                SourceDestCheck = 'false',
+                                ImageId = FindInMap(self.AMI_REGION_MAP, self.region_ref, 'BASTION'),
+                                InstanceType = 't2.micro',
+                                NetworkInterfaces = [ni],
+                                Tags = tags,
+                                UserData = Base64(Join('\n', [
+                                    '#!/bin/bash',
+                                    'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
+                                ])))
+        return [self.bastion_sg, self.bastion]
 
     def _create_private_subnet(self):
         name_private = self._fname('{0}Private')
