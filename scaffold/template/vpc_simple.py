@@ -340,8 +340,9 @@ class SimpleVPC(object):
     def _create_outputs(self):
         return [
             Output('PublicSubnet', Value = Ref(self.pub_subnet)),
-            Output('NATIP', Value = GetAtt(self.nat, 'PublicIp'))
-            # TODO: IP of the NAT/Bastion
+            Output('PrivateSubnet', Value = Ref(self.priv_subnet)),
+            Output('NATIP', Value = GetAtt(self.nat, 'PublicIp')),
+            # TODO: IP of the Bastion
             ]
 
     def _fname(self, fmt):
