@@ -2,10 +2,12 @@ from iam_simple import IAM
 import stack
 
 template = IAM('ScaffoldIAM')
-parameters = {}
+parameters = {
+    'BOGUS': 'FakeParameterValue'
+}
 
-creator = stack.Creator('scaffold-iam-simple', template.to_json())
-results = creator.create(parameters)
+updater = stack.Updater('scaffold-iam-simple', template.to_json())
+results = updater.update({})
 
 print 'ID:     ', results['id']
 print 'STATUS: ', results['status']

@@ -7,8 +7,8 @@ template = SimpleVPC('Scaffold')
 parameters = {
     template.PARM_KEY_NAME: 'bastion'
     }
-
-results = stack.create('scaffold-vpc-simple', parameters, template.to_json())
+creator = stack.Creator('scaffold-vpc-simple', template.to_json())
+results = creator.create(parameters)
 
 print 'ID:     ', results['id']
 print 'STATUS: ', results['status']

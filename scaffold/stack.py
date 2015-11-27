@@ -5,52 +5,96 @@ import time
 import boto3
 
 
-bucket_name = 'thousandleaves-us-west-2-laurel-deploy'
-key_prefix = 'scaffold/templates'
+BUCKET_NAME = 'thousandleaves-us-west-2-laurel-deploy'
+KEY_PREFIX = 'scaffold/templates'
 
 def printing_cb(stack_id, stack_status, status_reason):
     print '{0} - {1} : {2}'.format(stack_id, stack_status, status_reason if status_reason else '')
 
-def to_s3_url(bucket, key):
-    return 'http://s3.amazonaws.com/{}/{}'.format(bucket, key)
+class StackOperation(object):
+    def __init__(self, stack_name, template_body, bucket_name):
+        self.stack_name = stack_name
+        self.template_body = template_body
+        self.bucket_name = bucket_name
 
-def upload_template(stack_name, template_body):
-    key_name = '{}/{}'.format(key_prefix, stack_name)
-    bucket = boto3.resource('s3').Bucket(bucket_name)
-    bucket.put_object(Key = key_name,
-                      Body = template_body)
-    return to_s3_url(bucket_name, key_name)
-    
+    def _upload_template(self):
+        key_name = '{}/{}'.format(KEY_PREFIX, self.stack_name)
+        bucket = boto3.resource('s3').Bucket(self.bucket_name)
+        bucket.put_object(Key = key_name,
+                          Body = self.template_body)
+        return self._to_s3_url(self.bucket_name, key_name)
+        
+    def _to_s3_url(self, bucket, key):
+        return 'http://s3.amazonaws.com/{}/{}'.format(bucket, key)
 
-def create(stack_name, stack_params, template_body, cb = printing_cb):
-    cf = boto3.resource('cloudformation')
+    def _parse_stack_params(self, stack_params):
+        parsed = {}
+        if stack_params is None:
+            return parsed
+        for p in stack_params:
+            parsed[p['ParameterKey']] = p['ParameterValue']
+        return parsed
 
-    template_url = upload_template(stack_name, template_body)
-    print template_url
+    def _build_stack_params(self, param_dict):
+        params = []
+        for k, v in param_dict.items():
+            params.append({
+                'ParameterKey'   : k,
+                'ParameterValue' : v
+            })
+        return params
 
-    stack = cf.create_stack(
-        StackName = stack_name,
-        TemplateURL = template_url,
-        Parameters = build_stack_params(stack_params),
-        Capabilities = ['CAPABILITY_IAM'],
-        TimeoutInMinutes = 10,
-        OnFailure = 'ROLLBACK')
+    def _merge_stack_params(self, stack, update_params):
+        current_params = self._parse_stack_params(stack.parameters)
+        for k, v in update_params.items():
+            current_params[k] = v
+        return self._build_stack_params(current_params)
 
-    while stack.stack_status  == 'CREATE_IN_PROGRESS':
-        cb(stack.stack_id, stack.stack_status, stack.stack_status_reason)
-        time.sleep(10)
-        stack.reload()
-
-    return { 'id' : stack.stack_id,
-             'status' : stack.stack_status,
-             'reason' : stack.stack_status_reason
+    def _monitor_stack(self, stack, conditions, callback):
+        while stack.stack_status in conditions:
+            callback(stack.stack_id, stack.stack_status, stack.stack_status_reason)
+            time.sleep(10)
+            stack.reload()
+        return { 'id' : stack.stack_id,
+                 'status' : stack.stack_status,
+                 'reason' : stack.stack_status_reason
              }
 
-def build_stack_params(param_dict):
-    params = []
-    for k, v in param_dict.items():
-        params.append({
-            'ParameterKey'   : k,
-            'ParameterValue' : v
-            })
-    return params
+
+class Creator(StackOperation):
+    def __init__(self, stack_name, template_body, bucket_name = BUCKET_NAME):
+        super(Creator, self).__init__(stack_name, template_body, bucket_name)
+
+    def create(self, stack_params, cb = printing_cb):
+        cf = boto3.resource('cloudformation')
+        
+        stack = cf.create_stack(
+            StackName = self.stack_name,
+            TemplateURL = self._upload_template(),
+            Parameters = self._build_stack_params(stack_params),
+            Capabilities = ['CAPABILITY_IAM'],
+            TimeoutInMinutes = 10,
+            OnFailure = 'ROLLBACK')
+
+        return self._monitor_stack(stack, ['CREATE_IN_PROGRESS'], cb)
+
+
+class Updater(StackOperation):
+    def __init__(self, stack_name, template_body = None, bucket_name = BUCKET_NAME):
+        super(Updater, self).__init__(stack_name, template_body, bucket_name)
+
+        
+    def update(self, stack_params, cb = printing_cb):
+        cf = boto3.resource('cloudformation')
+        stack = cf.Stack(self.stack_name)
+        parameters = self._merge_stack_params(stack, stack_params)
+        if self.template_body is None:
+            stack.update(UsePreviousTemplate = True,
+                         Parameters = parameters,
+                         Capabilities = ['CAPABILITY_IAM'])
+        else:
+            stack.update(TemplateURL = self._upload_template(),
+                         Parameters = parameters,
+                         Capabilities = ['CAPABILITY_IAM'])
+
+        return self._monitor_stack(stack, ['UPDATE_IN_PROGRESS'], cb)

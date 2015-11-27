@@ -8,7 +8,7 @@ from awacs.aws import Action, Allow, Policy, Principal, Statement
 from awacs.iam import ARN as IAM_ARN
 from awacs.s3 import ARN as S3_ARN
 from awacs.sts import AssumeRole as STSAssumeRole
-from troposphere import Output, Ref, Template
+from troposphere import Output, Parameter, Ref, Template
 from troposphere import AWS_ACCOUNT_ID
 from troposphere.iam import InstanceProfile, ManagedPolicy, Role
 
