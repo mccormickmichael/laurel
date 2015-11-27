@@ -23,6 +23,8 @@ import sys
 from troposphere import Base64, FindInMap, GetAtt, GetAZs, Join, Output, Parameter, Ref, Select, Tags, Template
 from troposphere.ec2 import Instance, InternetGateway, NetworkAcl, NetworkAclEntry, NetworkInterfaceProperty, PortRange, Route, RouteTable, SecurityGroup, SecurityGroupRule, Subnet, SubnetNetworkAclAssociation, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment
 
+from . import utils
+
 CIDR_ANY = '0.0.0.0/0'
 CIDR_NONE = '0.0.0.0/32'
 
@@ -41,7 +43,7 @@ class ProtocolBuilder(object):
         return self.tcp('SSH', 22, 22, cidr)
     
     def ephemeral(self, cidr = None):
-        return self.tcp('EphemeralReturn', 49152, 65535, cidr)
+        return self.tcp('EphemeralReturn', 32767, 65535, cidr)
 
     def tcp(self, name, port_from, port_to, cidr = None):
         cidr = cidr or self.cidr
@@ -241,7 +243,7 @@ class SimpleVPC(object):
 
     def _create_public_subnet(self):
         name_public = '{0}Public'.format(self.name)
-        tags = self.default_tags + Tags(Name = name_public)
+        tags = utils.merge_tags(self.default_tags, Tags(Name = name_public))
         self.pub_subnet = Subnet('{0}Subnet'.format(name_public),
                                  AvailabilityZone = Select(0, GetAZs()),
                                  CidrBlock = Ref(self.PARM_PUB_CIDR),
@@ -274,8 +276,8 @@ class SimpleVPC(object):
 
     def _create_nat(self):
         name_nat = self._fname('{0}NAT')
-        tags = self.default_tags + Tags(Name = name_nat)
-        sg_ingress = SecurityGroupRuleBuilder(Ref(self.PARM_PRIV_CIDR)).http().https().ssh(CIDR_ANY)
+        tags = utils.merge_tags(self.default_tags, Tags(Name = name_nat))
+        sg_ingress = SecurityGroupRuleBuilder(Ref(self.PARM_PRIV_CIDR)).http().https().ssh(Ref(self.PARM_PUB_CIDR))
         sg_egress = SecurityGroupRuleBuilder(CIDR_ANY).http().https()
         self.nat_sg = SecurityGroup('{0}NATSG'.format(name_nat),
                                     VpcId = Ref(self.vpc),
@@ -306,9 +308,9 @@ class SimpleVPC(object):
 
     def _create_bastion(self):
         name_bastion = self._fname('{0}Bastion')
-        tags = self.default_tags + Tags(Name = name_bastion)
+        tags = utils.merge_tags(self.default_tags, Tags(Name = name_bastion))
         sg_ingress = SecurityGroupRuleBuilder(CIDR_ANY).ssh()
-        sg_egress = SecurityGroupRuleBuilder().ssh(Ref(self.PARM_PRIV_CIDR)).ssh(Ref(self.PARM_PUB_CIDR))
+        sg_egress = SecurityGroupRuleBuilder().ssh(Ref(self.PARM_VPC_CIDR))
         self.bastion_sg = SecurityGroup('{0}BastionSG'.format(name_bastion),
                                         VpcId = Ref(self.vpc),
                                         GroupDescription = 'Bastion Security Group',
@@ -338,7 +340,7 @@ class SimpleVPC(object):
 
     def _create_private_subnet(self):
         name_private = self._fname('{0}Private')
-        tags = self.default_tags + Tags(Name = name_private)
+        tags = utils.merge_tags(self.default_tags, Tags(Name = name_private))
         pub_cidr_ref = Ref(self.PARM_PUB_CIDR)
         self.priv_subnet = Subnet('{0}Subnet'.format(name_private),
                                   AvailabilityZone = Select(1, GetAZs()),
@@ -365,7 +367,7 @@ class SimpleVPC(object):
                           DestinationCidrBlock = CIDR_ANY)
 
         nb = NaclBuilder(self.priv_nacl)
-        nb.ingress().allow(pub_cidr_ref).ssh().ephemeral(CIDR_ANY)
+        nb.ingress().allow().ssh(pub_cidr_ref).ephemeral()
         nb.egress().allow().http().https().ephemeral(pub_cidr_ref)
 
         return [self.priv_subnet, self.priv_rt, self.priv_nacl, nacl_assoc, rt_assoc, nat_route] + nb.resources()
@@ -375,7 +377,7 @@ class SimpleVPC(object):
             Output('PublicSubnet', Value = Ref(self.pub_subnet)),
             Output('PrivateSubnet', Value = Ref(self.priv_subnet)),
             Output('NATIP', Value = GetAtt(self.nat, 'PublicIp')),
-            # TODO: IP of the Bastion
+            Output('BastionIP', Value = GetAtt(self.bastion, 'PublicIp'))
             ]
 
     def _fname(self, fmt):
