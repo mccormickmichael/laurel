@@ -1,4 +1,6 @@
-from iam_simple import IAM
+#!/usr/bin/python
+
+from template.iam_simple import IAM
 import stack
 
 template = IAM('ScaffoldIAM')

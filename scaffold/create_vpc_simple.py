@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from vpc_simple import SimpleVPC
+from template.vpc_simple import SimpleVPC
 import stack
 
 template = SimpleVPC('Scaffold')
