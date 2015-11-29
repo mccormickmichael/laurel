@@ -3,8 +3,8 @@
 # Common functions and builders for VPC Templates
 
 import re
-from troposphere import Ref
-from troposphere.ec2 import (InternetGateway, NetworkAcl, NetworkAclEntry, PortRange, SecurityGroupRule, VPC, VPCGatewayAttachment)
+from troposphere import Base64, Join, Ref
+from troposphere.ec2 import (Instance, InternetGateway, NetworkAcl, NetworkAclEntry, NetworkInterfaceProperty, PortRange, SecurityGroupRule, VPC, VPCGatewayAttachment)
 
 CIDR_ANY = '0.0.0.0/0'
 CIDR_NONE = '0.0.0.0/32'
@@ -134,6 +134,9 @@ class SecurityGroupRuleBuilder(ProtocolBuilder):
             ToPort = port_to,
             IpProtocol = protocol))
 
+def _asref(o):
+    return o if isinstance(o, Ref) else Ref(o)
+
 def create_vpc_with_inet_gateway(name, vpc_cidr, tags = []):
     cidr = Ref(vpc_cidr) if cidr_re.match(vpc_cidr) is None else vpc_cidr
     vpc = VPC('{}VPC'.format(name),
@@ -150,5 +153,28 @@ def create_vpc_with_inet_gateway(name, vpc_cidr, tags = []):
         'GatewayAttachment' : attach
     }
 
+def create_nat_instance(name, sg, subnet, key_name, image_id, tags = []):
+    ni = NetworkInterfaceProperty(
+        AssociatePublicIpAddress = True,
+        DeleteOnTermination = True,
+        DeviceIndex = 0,
+        GroupSet = [_asref(sg)],
+        SubnetId = _asref(subnet)
+    )
+    # TODO: DependsOn?
+    nat = Instance('{}NAT'.format(name),
+                   KeyName = _asref(key_name),
+                   SourceDestCheck = 'false',
+                   ImageId = image_id,
+                   InstanceType = 't2.micro',
+                   NetworkInterfaces = [ni],
+                   Tags = tags,
+                   UserData = Base64(Join('\n', [
+                       '#!/bin/bash',
+                       'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
+                   ])))
+    return {
+        'Instance': nat
+    }
+    
 
-        #TODO: cidr_block ref vs nonref

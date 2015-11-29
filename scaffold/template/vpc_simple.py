@@ -157,35 +157,20 @@ class SimpleVPC(object):
         return [self.pub_subnet, self.pub_rt, self.pub_nacl, nacl_assoc, rt_assoc, igw_route] + nb.resources()
 
     def _create_nat(self):
-        name_nat = self._fname('{0}NAT')
-        tags = utils.merge_tags(self.default_tags, Tags(Name = name_nat))
         sg_ingress = SecurityGroupRuleBuilder(Ref(self.PARM_PRIV_CIDR)).http().https().ssh(Ref(self.PARM_PUB_CIDR))
         sg_egress = SecurityGroupRuleBuilder(vpc.CIDR_ANY).http().https()
-        self.nat_sg = SecurityGroup('{0}NATSG'.format(name_nat),
+        self.nat_sg = SecurityGroup('{0}NATSG'.format(self.name),
                                     VpcId = Ref(self.vpc),
                                     GroupDescription = 'NAT Security Group',
                                     SecurityGroupEgress = sg_egress.rules(),
                                     SecurityGroupIngress = sg_ingress.rules(),
                                     Tags = self.default_tags)
-        ni = NetworkInterfaceProperty(
-            AssociatePublicIpAddress = True,
-            DeleteOnTermination = True,
-            DeviceIndex = 0,
-            GroupSet = [Ref(self.nat_sg)],
-            SubnetId = Ref(self.pub_subnet)
-        )
-        self.nat = Instance(name_nat,
-                            DependsOn = self.vpc.name,
-                            KeyName = Ref(self.PARM_KEY_NAME), #TODO: no login to NAT
-                            SourceDestCheck = 'false',
-                            ImageId = FindInMap(self.AMI_REGION_MAP, self.region_ref, 'NAT'),
-                            InstanceType = 't2.micro',
-                            NetworkInterfaces = [ni],
-                            Tags = tags,
-                            UserData = Base64(Join('\n', [
-                                '#!/bin/bash',
-                                'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
-                            ])))
+
+        imageid = FindInMap(self.AMI_REGION_MAP, self.region_ref, 'NAT')
+        tags = utils.merge_tags(self.default_tags, Tags(Name = self.name))
+
+        resources = vpc.create_nat_instance(self.name, self.nat_sg, self.pub_subnet, self.PARM_KEY_NAME, imageid, tags)
+        self.nat = resources['Instance']
         return [self.nat_sg, self.nat]
 
     def _create_bastion(self):
