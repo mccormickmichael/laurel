@@ -185,38 +185,18 @@ class SimpleVPC(object):
         return [self.bastion_sg, self.bastion]
 
     def _create_private_subnet(self):
-        name_private = self._fname('{0}Private')
-        tags = utils.merge_tags(self.default_tags, Tags(Name = name_private))
-        pub_cidr_ref = Ref(self.PARM_PUB_CIDR)
-        self.priv_subnet = Subnet('{0}Subnet'.format(name_private),
-                                  AvailabilityZone = Select(1, GetAZs()),
-                                  CidrBlock = Ref(self.PARM_PRIV_CIDR),
-                                  MapPublicIpOnLaunch = False,
-                                  VpcId = Ref(self.vpc),
-                                  Tags = tags)
-        self.priv_rt = RouteTable('{0}RT'.format(name_private),
-                                  VpcId = Ref(self.vpc),
-                                  Tags = tags)
-        self.priv_nacl = NetworkAcl('{0}Nacl'.format(name_private),
-                                    VpcId = Ref(self.vpc),
-                                    Tags = tags)
-        nacl_assoc = SubnetNetworkAclAssociation('{0}{1}'.format(self.priv_subnet.name, self.priv_nacl.name),
-                                                 SubnetId = Ref(self.priv_subnet),
-                                                 NetworkAclId = Ref(self.priv_nacl))
-        rt_assoc = SubnetRouteTableAssociation('{0}{1}'.format(self.priv_subnet.name, self.priv_rt.name),
-                                               SubnetId = Ref(self.priv_subnet),
-                                               RouteTableId = Ref(self.priv_rt))
-        nat_route = Route('{0}Route'.format(name_private),
-                          RouteTableId = Ref(self.priv_rt),
-                          DependsOn = self.nat.name,
-                          InstanceId = Ref(self.nat),
-                          DestinationCidrBlock = vpc.CIDR_ANY)
+        resources = vpc.create_private_subnet(self.name, 1, self.PARM_PRIV_CIDR, self.PARM_PUB_CIDR, self.vpc, self.nat, self.default_tags)
 
+        self.priv_subnet = resources['Subnet']
+        self.priv_rt = resources['RouteTable']
+        self.priv_nacl = resources['NetworkAcl']
+
+        pub_cidr_ref = Ref(self.PARM_PUB_CIDR)
         nb = NaclBuilder(self.priv_nacl)
         nb.ingress().allow().ssh(pub_cidr_ref).ephemeral()
         nb.egress().allow().http().https().ephemeral(pub_cidr_ref)
 
-        return [self.priv_subnet, self.priv_rt, self.priv_nacl, nacl_assoc, rt_assoc, nat_route] + nb.resources()
+        return resources.values() + nb.resources()
 
     def _create_outputs(self):
         return [

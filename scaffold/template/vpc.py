@@ -3,8 +3,8 @@
 # Common functions and builders for VPC Templates
 
 import re
-from troposphere import Base64, Join, Ref
-from troposphere.ec2 import (Instance, InternetGateway, NetworkAcl, NetworkAclEntry, NetworkInterfaceProperty, PortRange, SecurityGroupRule, VPC, VPCGatewayAttachment)
+from troposphere import Base64, GetAZs, Join, Ref, Select
+from troposphere.ec2 import (Instance, InternetGateway, NetworkAcl, NetworkAclEntry, NetworkInterfaceProperty, PortRange, Route, RouteTable, SecurityGroupRule, Subnet, SubnetNetworkAclAssociation, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment)
 
 CIDR_ANY = '0.0.0.0/0'
 CIDR_NONE = '0.0.0.0/32'
@@ -184,3 +184,36 @@ def _create_util_instance(name, sg, subnet, key_name, image_id, tags, dependenci
         'Instance': instance
     }
 
+def create_private_subnet(name, index, cidr, pub_cidr, vpc, nat, tags = []):
+    prefix = '{}PrivateSubnet{}'.format(name, index)
+    subnet = Subnet(prefix,
+                    AvailabilityZone = Select(index, GetAZs()),
+                    CidrBlock = _asref(cidr),
+                    MapPublicIpOnLaunch = False,
+                    VpcId = Ref(vpc),
+                    Tags = tags)
+    route_table = RouteTable('{}RT'.format(name),
+                             VpcId = Ref(vpc),
+                             Tags = tags)
+    nacl = NetworkAcl('{}Nacl'.format(prefix),
+                      VpcId = Ref(vpc),
+                      Tags = tags)
+    rt_assoc = SubnetRouteTableAssociation('{}Assoc'.format(route_table.name),
+                                           SubnetId = Ref(subnet),
+                                           RouteTableId = Ref(route_table))
+    nacl_assoc = SubnetNetworkAclAssociation('{}Assoc'.format(nacl.name),
+                                             SubnetId = Ref(subnet),
+                                             NetworkAclId = Ref(nacl))
+    nat_route = Route('{}Route'.format(prefix),
+                      RouteTableId = Ref(route_table),
+                      DependsOn = nat.name,
+                      InstanceId = Ref(nat),
+                      DestinationCidrBlock = CIDR_ANY)
+    return {
+        'Subnet'         : subnet,
+        'RouteTable'     : route_table,
+        'NetworkAcl'     : nacl,
+        'RouteTableAssoc': rt_assoc,
+        'NaclAssoc'      : nacl_assoc,
+        'NATRoute'       : nat_route
+    }
