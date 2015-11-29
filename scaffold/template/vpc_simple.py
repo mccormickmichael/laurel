@@ -16,139 +16,21 @@
 # PrivateSubnetCidr: CIDR block of the private subnet. Defaults to 172.16.1.0/24
 #
 # Stack Outputs:
-# BastionIP: The public IP of the bastion server
+# NATIP:         The public IP of the NAT server
+# BastionIP:     The public IP of the bastion server
+# PublicSubnet:  The ID of the public subnet
+# PrivateSubnet: The ID of the private subnet
 
 import sys
-
-from troposphere import Base64, FindInMap, GetAtt, GetAZs, Join, Output, Parameter, Ref, Select, Tags, Template
-from troposphere.ec2 import Instance, InternetGateway, NetworkAcl, NetworkAclEntry, NetworkInterfaceProperty, PortRange, Route, RouteTable, SecurityGroup, SecurityGroupRule, Subnet, SubnetNetworkAclAssociation, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment
-
-from . import utils
-
-CIDR_ANY = '0.0.0.0/0'
-CIDR_NONE = '0.0.0.0/32'
-
-class ProtocolBuilder(object):
-    def __init__(self, parent, cidr = None):
-        self.parent = parent
-        self.cidr = cidr
-
-    def http(self, cidr = None):
-        return self.tcp('Http', 80, 80, cidr)
-    
-    def https(self, cidr = None):
-        return self.tcp('Https', 443, 443, cidr)
-    
-    def ssh(self, cidr = None):
-        return self.tcp('SSH', 22, 22, cidr)
-    
-    def ephemeral(self, cidr = None):
-        return self.tcp('EphemeralReturn', 32767, 65535, cidr)
-
-    def tcp(self, name, port_from, port_to, cidr = None):
-        cidr = cidr or self.cidr
-        self.parent._addrule(name, self.action(), '6', port_from, port_to, cidr)
-        return self
-
-class AllowProtocolBuilder(ProtocolBuilder):
-    def __init__(self, parent, cidr = None):
-        super(AllowProtocolBuilder, self).__init__(parent, cidr)
-
-    def action(self):
-        return 'allow'
-
-class DenyProtocolBuilder(ProtocolBuilder):
-    def __init__(self, parent, cidr = None):
-        super(DenyProtocolBuilder, self).__init__(parent, cidr)
-
-    def action(self):
-        return 'deny'
-        
-class NaclEntryBuilder(object):
-    def __init__(self, parent):
-        self.parent = parent
-        self.rule = 100
-        
-    def deny(self, cidr = None):
-        return DenyProtocolBuilder(self, cidr)
-        
-    def allow(self, cidr = None):
-        return AllowProtocolBuilder(self, cidr)
-
-    def _addrule(self, name, action, protocol, port_from, port_to, cidr = None):
-        self.parent._addrule(self._rulename(name), self._nextrulenum(), protocol, port_from, port_to, self._egress(), action, cidr)
-
-    def _nextrulenum(self):
-        rule = self.rule
-        self.rule += 1
-        return rule
-
-class NaclIngressBuilder(NaclEntryBuilder):
-    def __init__(self, parent):
-        super(NaclIngressBuilder, self).__init__(parent)
-        
-    def _rulename(self, prefix):
-        return '{0}In'.format(prefix)
-
-    def _egress(self):
-        return 'false'
-
-class NaclEgressBuilder(NaclEntryBuilder):
-    def __init__(self, parent):
-        super(NaclEgressBuilder, self).__init__(parent)
-
-    def _rulename(self, prefix):
-        return '{0}Out'.format(prefix)
-
-    def _egress(self):
-        return 'true'
-
-class NaclBuilder(object):
-    def __init__(self, nacl, cidr = CIDR_ANY):
-        self.nacl = nacl
-        self.cidr = cidr
-        self.ib = NaclIngressBuilder(self)
-        self.eb = NaclEgressBuilder(self)
-        self.entries = []
-
-    def ingress(self):
-        return self.ib
-    
-    def egress(self):
-        return self.eb
-    
-    def resources(self):
-        return self.entries
-    
-    def _addrule(self, name, number, protocol, from_port, to_port, egress, action, cidr = None):
-        cidr = cidr or self.cidr
-        rule = NetworkAclEntry('{0}{1}'.format(self.nacl.name, name),
-                               NetworkAclId = Ref(self.nacl),
-                               RuleNumber = str(number),
-                               Protocol = protocol,
-                               PortRange = PortRange(From = from_port, To = to_port),
-                               Egress = egress,
-                               RuleAction = action,
-                               CidrBlock = cidr)
-        self.entries.append(rule)
-        
-class SecurityGroupRuleBuilder(ProtocolBuilder):
-    def __init__(self, cidr = CIDR_NONE):
-        super(SecurityGroupRuleBuilder, self).__init__(self, cidr)
-        self._rules = []
-
-    def rules(self):
-        return self._rules
-
-    def action(self):
-        return ''
-    
-    def _addrule(self, name_ignored, action_ignored, protocol, port_from, port_to, cidr):
-        self._rules.append(SecurityGroupRule(
-            CidrIp = cidr,
-            FromPort = port_from,
-            ToPort = port_to,
-            IpProtocol = protocol))
+from troposphere import (Base64, FindInMap, GetAtt, GetAZs, Join, Output, Parameter, Ref,
+                         Select, Tags, Template)
+from troposphere.ec2 import (Instance, InternetGateway, NetworkAcl, NetworkAclEntry,
+                             NetworkInterfaceProperty, PortRange, Route, RouteTable,
+                             SecurityGroup, SecurityGroupRule, Subnet,
+                             SubnetNetworkAclAssociation, SubnetRouteTableAssociation,
+                             VPC, VPCGatewayAttachment)
+from . import utils, vpc
+from .vpc import NaclBuilder, SecurityGroupRuleBuilder
 
 class SimpleVPC(object):
 
@@ -232,14 +114,11 @@ class SimpleVPC(object):
         }
         
     def _create_vpc_with_gateway(self):
-        self.vpc = VPC('{0}VPC'.format(self.name),
-                       CidrBlock = Ref(self.PARM_VPC_CIDR),
-                       Tags = self.default_tags)
-        self.igw = InternetGateway('{0}InternetGateway'.format(self.name), Tags = self.default_tags)
-        self.igw_attach = VPCGatewayAttachment('{0}GatewayAttachment'.format(self.name),
-                                               InternetGatewayId = Ref(self.igw),
-                                               VpcId = Ref(self.vpc))
-        return [self.vpc, self.igw, self.igw_attach]
+        resources = vpc.create_vpc_with_inet_gateway(self.name, self.PARM_VPC_CIDR, self.default_tags)
+        self.vpc = resources['VPC']
+        self.igw = resources['InternetGateway']
+        self.igw_attach = resources['GatewayAttachment']
+        return resources.values()
 
     def _create_public_subnet(self):
         name_public = '{0}Public'.format(self.name)
@@ -256,17 +135,20 @@ class SimpleVPC(object):
         self.pub_nacl = NetworkAcl('{0}Nacl'.format(name_public),
                                    VpcId = Ref(self.vpc),
                                    Tags = tags)
-        nacl_assoc = SubnetNetworkAclAssociation('{0}{1}'.format(self.pub_subnet.name, self.pub_nacl.name),
-                                            SubnetId = Ref(self.pub_subnet),
-                                            NetworkAclId = Ref(self.pub_nacl))
-        rt_assoc = SubnetRouteTableAssociation('{0}{1}'.format(self.pub_subnet.name, self.pub_rt.name),
-                                               SubnetId = Ref(self.pub_subnet),
-                                               RouteTableId = Ref(self.pub_rt))
-        igw_route = Route('{0}Route'.format(name_public),
-                          RouteTableId = Ref(self.pub_rt),
-                          DependsOn = self.igw_attach.name,
-                          GatewayId = Ref(self.igw),
-                          DestinationCidrBlock = CIDR_ANY)
+        nacl_assoc = SubnetNetworkAclAssociation(
+            '{0}{1}'.format(self.pub_subnet.name, self.pub_nacl.name),
+            SubnetId = Ref(self.pub_subnet),
+            NetworkAclId = Ref(self.pub_nacl))
+        rt_assoc = SubnetRouteTableAssociation(
+            '{0}{1}'.format(self.pub_subnet.name, self.pub_rt.name),
+            SubnetId = Ref(self.pub_subnet),
+            RouteTableId = Ref(self.pub_rt))
+        igw_route = Route(
+            '{0}Route'.format(name_public),
+            RouteTableId = Ref(self.pub_rt),
+            DependsOn = self.igw_attach.name,
+            GatewayId = Ref(self.igw),
+            DestinationCidrBlock = vpc.CIDR_ANY)
         
         nb = NaclBuilder(self.pub_nacl)
         nb.ingress().allow().http().https().ssh().ephemeral()
@@ -278,7 +160,7 @@ class SimpleVPC(object):
         name_nat = self._fname('{0}NAT')
         tags = utils.merge_tags(self.default_tags, Tags(Name = name_nat))
         sg_ingress = SecurityGroupRuleBuilder(Ref(self.PARM_PRIV_CIDR)).http().https().ssh(Ref(self.PARM_PUB_CIDR))
-        sg_egress = SecurityGroupRuleBuilder(CIDR_ANY).http().https()
+        sg_egress = SecurityGroupRuleBuilder(vpc.CIDR_ANY).http().https()
         self.nat_sg = SecurityGroup('{0}NATSG'.format(name_nat),
                                     VpcId = Ref(self.vpc),
                                     GroupDescription = 'NAT Security Group',
@@ -309,7 +191,7 @@ class SimpleVPC(object):
     def _create_bastion(self):
         name_bastion = self._fname('{0}Bastion')
         tags = utils.merge_tags(self.default_tags, Tags(Name = name_bastion))
-        sg_ingress = SecurityGroupRuleBuilder(CIDR_ANY).ssh()
+        sg_ingress = SecurityGroupRuleBuilder(vpc.CIDR_ANY).ssh()
         sg_egress = SecurityGroupRuleBuilder().ssh(Ref(self.PARM_VPC_CIDR))
         self.bastion_sg = SecurityGroup('{0}BastionSG'.format(name_bastion),
                                         VpcId = Ref(self.vpc),
@@ -364,7 +246,7 @@ class SimpleVPC(object):
                           RouteTableId = Ref(self.priv_rt),
                           DependsOn = self.nat.name,
                           InstanceId = Ref(self.nat),
-                          DestinationCidrBlock = CIDR_ANY)
+                          DestinationCidrBlock = vpc.CIDR_ANY)
 
         nb = NaclBuilder(self.priv_nacl)
         nb.ingress().allow().ssh(pub_cidr_ref).ephemeral()
