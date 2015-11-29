@@ -165,44 +165,23 @@ class SimpleVPC(object):
                                     SecurityGroupEgress = sg_egress.rules(),
                                     SecurityGroupIngress = sg_ingress.rules(),
                                     Tags = self.default_tags)
-
         imageid = FindInMap(self.AMI_REGION_MAP, self.region_ref, 'NAT')
-        tags = utils.merge_tags(self.default_tags, Tags(Name = self.name))
-
-        resources = vpc.create_nat_instance(self.name, self.nat_sg, self.pub_subnet, self.PARM_KEY_NAME, imageid, tags)
+        resources = vpc.create_nat_instance(self.name, self.nat_sg, self.pub_subnet, self.PARM_KEY_NAME, imageid, self.default_tags, [self.igw_attach])
         self.nat = resources['Instance']
         return [self.nat_sg, self.nat]
 
     def _create_bastion(self):
-        name_bastion = self._fname('{0}Bastion')
-        tags = utils.merge_tags(self.default_tags, Tags(Name = name_bastion))
         sg_ingress = SecurityGroupRuleBuilder(vpc.CIDR_ANY).ssh()
         sg_egress = SecurityGroupRuleBuilder().ssh(Ref(self.PARM_VPC_CIDR))
-        self.bastion_sg = SecurityGroup('{0}BastionSG'.format(name_bastion),
+        self.bastion_sg = SecurityGroup('{0}BastionSG'.format(self.name),
                                         VpcId = Ref(self.vpc),
                                         GroupDescription = 'Bastion Security Group',
                                         SecurityGroupEgress = sg_egress.rules(),
                                         SecurityGroupIngress = sg_ingress.rules(),
                                         Tags = self.default_tags)
-        ni = NetworkInterfaceProperty(
-            AssociatePublicIpAddress = True,
-            DeleteOnTermination = True,
-            DeviceIndex = 0,
-            GroupSet = [Ref(self.bastion_sg)],
-            SubnetId = Ref(self.pub_subnet)
-        )
-        self.bastion = Instance(name_bastion,
-                                DependsOn = self.vpc.name,
-                                KeyName = Ref(self.PARM_KEY_NAME),
-                                SourceDestCheck = 'false',
-                                ImageId = FindInMap(self.AMI_REGION_MAP, self.region_ref, 'BASTION'),
-                                InstanceType = 't2.micro',
-                                NetworkInterfaces = [ni],
-                                Tags = tags,
-                                UserData = Base64(Join('\n', [
-                                    '#!/bin/bash',
-                                    'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
-                                ])))
+        imageid = FindInMap(self.AMI_REGION_MAP, self.region_ref, 'BASTION')
+        resources = vpc.create_bastion_instance(self.name, self.bastion_sg, self.pub_subnet, self.PARM_KEY_NAME, imageid, self.default_tags, [self.igw_attach])
+        self.bastion = resources['Instance']
         return [self.bastion_sg, self.bastion]
 
     def _create_private_subnet(self):

@@ -153,7 +153,14 @@ def create_vpc_with_inet_gateway(name, vpc_cidr, tags = []):
         'GatewayAttachment' : attach
     }
 
-def create_nat_instance(name, sg, subnet, key_name, image_id, tags = []):
+def create_nat_instance(name, sg, subnet, key_name, image_id, tags = [], dependencies = []):
+    return _create_util_instance('{}NAT'.format(name), sg, subnet, key_name, image_id, tags, dependencies)
+
+def create_bastion_instance(name, sg, subnet, key_name, image_id, tags = [], dependencies = []):
+    return _create_util_instance('{}Bastion'.format(name), sg, subnet, key_name, image_id, tags, dependencies)
+
+def _create_util_instance(name, sg, subnet, key_name, image_id, tags, dependencies):
+    dependency_names = [d.name for d in dependencies]
     ni = NetworkInterfaceProperty(
         AssociatePublicIpAddress = True,
         DeleteOnTermination = True,
@@ -161,20 +168,19 @@ def create_nat_instance(name, sg, subnet, key_name, image_id, tags = []):
         GroupSet = [_asref(sg)],
         SubnetId = _asref(subnet)
     )
-    # TODO: DependsOn?
-    nat = Instance('{}NAT'.format(name),
-                   KeyName = _asref(key_name),
-                   SourceDestCheck = 'false',
-                   ImageId = image_id,
-                   InstanceType = 't2.micro',
-                   NetworkInterfaces = [ni],
-                   Tags = tags,
-                   UserData = Base64(Join('\n', [
-                       '#!/bin/bash',
-                       'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
-                   ])))
+    instance = Instance(name,
+                        DependsOn = dependency_names,
+                        KeyName = _asref(key_name),
+                        SourceDestCheck = 'false',
+                        ImageId = image_id,
+                        InstanceType = 't2.micro',
+                        NetworkInterfaces = [ni],
+                        Tags = tags,
+                        UserData = Base64(Join('\n', [
+                            '#!/bin/bash',
+                            'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
+                        ])))
     return {
-        'Instance': nat
+        'Instance': instance
     }
-    
 
