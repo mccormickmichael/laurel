@@ -9,7 +9,6 @@
 # Allowed traffic from private subnet to internet: HTTP, HTTPS, SSH
 #
 # Parameters:
-# Name: The name of the VPC and associated subnets
 # BastionKey: the public key name to be used to access the bastion server.
 # VpcCidr: CIDR block of the VPC. Defaults to 172.16.0.0/16
 # PublicSubnetCidr: CIDR block of the public subnet. Defaults to 172.16.0.0/24
