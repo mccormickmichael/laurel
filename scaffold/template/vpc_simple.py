@@ -22,13 +22,8 @@
 # PrivateSubnet: The ID of the private subnet
 
 import sys
-from troposphere import (Base64, FindInMap, GetAtt, GetAZs, Join, Output, Parameter, Ref,
-                         Select, Tags, Template)
-from troposphere.ec2 import (Instance, InternetGateway, NetworkAcl, NetworkAclEntry,
-                             NetworkInterfaceProperty, PortRange, Route, RouteTable,
-                             SecurityGroup, SecurityGroupRule, Subnet,
-                             SubnetNetworkAclAssociation, SubnetRouteTableAssociation,
-                             VPC, VPCGatewayAttachment)
+from troposphere import FindInMap, GetAtt, Output, Parameter, Ref, Tags, Template
+from troposphere.ec2 import Instance, NetworkAcl, SecurityGroup
 from . import utils, vpc
 from .vpc import NaclBuilder, SecurityGroupRuleBuilder
 
@@ -126,6 +121,7 @@ class SimpleVPC(object):
         nb = NaclBuilder(resources['NetworkAcl'])
         nb.ingress().allow().http().https().ssh().ephemeral()
         nb.egress().allow().http().https().ephemeral().ssh(Ref(self.PARM_PRIV_CIDR))
+        self.pub_subnet = resources['Subnet']
 
         return resources.values() + nb.resources()
 
