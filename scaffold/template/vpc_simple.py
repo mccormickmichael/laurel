@@ -121,40 +121,13 @@ class SimpleVPC(object):
         return resources.values()
 
     def _create_public_subnet(self):
-        name_public = '{0}Public'.format(self.name)
-        tags = utils.merge_tags(self.default_tags, Tags(Name = name_public))
-        self.pub_subnet = Subnet('{0}Subnet'.format(name_public),
-                                 AvailabilityZone = Select(0, GetAZs()),
-                                 CidrBlock = Ref(self.PARM_PUB_CIDR),
-                                 MapPublicIpOnLaunch = True,
-                                 VpcId = Ref(self.vpc),
-                                 Tags = tags)
-        self.pub_rt = RouteTable('{0}RT'.format(name_public),
-                                 VpcId = Ref(self.vpc),
-                                 Tags = tags)
-        self.pub_nacl = NetworkAcl('{0}Nacl'.format(name_public),
-                                   VpcId = Ref(self.vpc),
-                                   Tags = tags)
-        nacl_assoc = SubnetNetworkAclAssociation(
-            '{0}{1}'.format(self.pub_subnet.name, self.pub_nacl.name),
-            SubnetId = Ref(self.pub_subnet),
-            NetworkAclId = Ref(self.pub_nacl))
-        rt_assoc = SubnetRouteTableAssociation(
-            '{0}{1}'.format(self.pub_subnet.name, self.pub_rt.name),
-            SubnetId = Ref(self.pub_subnet),
-            RouteTableId = Ref(self.pub_rt))
-        igw_route = Route(
-            '{0}Route'.format(name_public),
-            RouteTableId = Ref(self.pub_rt),
-            DependsOn = self.igw_attach.name,
-            GatewayId = Ref(self.igw),
-            DestinationCidrBlock = vpc.CIDR_ANY)
+        resources = vpc.create_public_subnet(self.name, 0, self.PARM_PUB_CIDR, self.vpc, self.igw, self.default_tags)
         
-        nb = NaclBuilder(self.pub_nacl)
+        nb = NaclBuilder(resources['NetworkAcl'])
         nb.ingress().allow().http().https().ssh().ephemeral()
         nb.egress().allow().http().https().ephemeral().ssh(Ref(self.PARM_PRIV_CIDR))
 
-        return [self.pub_subnet, self.pub_rt, self.pub_nacl, nacl_assoc, rt_assoc, igw_route] + nb.resources()
+        return resources.values() + nb.resources()
 
     def _create_nat(self):
         sg_ingress = SecurityGroupRuleBuilder(Ref(self.PARM_PRIV_CIDR)).http().https().ssh(Ref(self.PARM_PUB_CIDR))
@@ -185,7 +158,7 @@ class SimpleVPC(object):
         return [self.bastion_sg, self.bastion]
 
     def _create_private_subnet(self):
-        resources = vpc.create_private_subnet(self.name, 1, self.PARM_PRIV_CIDR, self.PARM_PUB_CIDR, self.vpc, self.nat, self.default_tags)
+        resources = vpc.create_private_subnet(self.name, 1, self.PARM_PRIV_CIDR, self.vpc, self.nat, self.default_tags)
 
         self.priv_subnet = resources['Subnet']
         self.priv_rt = resources['RouteTable']

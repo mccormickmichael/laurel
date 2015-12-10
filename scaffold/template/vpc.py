@@ -184,10 +184,10 @@ def _create_util_instance(name, sg, subnet, key_name, image_id, tags, dependenci
         'Instance': instance
     }
 
-def create_private_subnet(name, index, cidr, pub_cidr, vpc, nat, tags = []):
-    prefix = '{}PrivateSubnet{}'.format(name, index)
+def _create_subnet(prefix, az_index, cidr, vpc, tags = []):
+    prefix = '{}Subnet{}'.format(prefix, az_index)
     subnet = Subnet(prefix,
-                    AvailabilityZone = Select(index, GetAZs()),
+                    AvailabilityZone = Select(az_index, GetAZs()),
                     CidrBlock = _asref(cidr),
                     MapPublicIpOnLaunch = False,
                     VpcId = Ref(vpc),
@@ -204,16 +204,33 @@ def create_private_subnet(name, index, cidr, pub_cidr, vpc, nat, tags = []):
     nacl_assoc = SubnetNetworkAclAssociation('{}Assoc'.format(nacl.name),
                                              SubnetId = Ref(subnet),
                                              NetworkAclId = Ref(nacl))
-    nat_route = Route('{}Route'.format(prefix),
-                      RouteTableId = Ref(route_table),
-                      DependsOn = nat.name,
-                      InstanceId = Ref(nat),
-                      DestinationCidrBlock = CIDR_ANY)
     return {
         'Subnet'         : subnet,
         'RouteTable'     : route_table,
         'NetworkAcl'     : nacl,
         'RouteTableAssoc': rt_assoc,
-        'NaclAssoc'      : nacl_assoc,
-        'NATRoute'       : nat_route
+        'NaclAssoc'      : nacl_assoc
     }
+
+def create_public_subnet(name, index, cidr, vpc, gateway, tags = []):
+    prefix = '{}Public'.format(name)
+    resources = _create_subnet(prefix, index, cidr, vpc, tags)
+    igw_route = Route('{}Route'.format(resources['Subnet'].name),
+                      RouteTableId = Ref(resources['RouteTable']),
+                      DependsOn = gateway.name,
+                      GatewayId = Ref(gateway),
+                      DestinationCidrBlock = CIDR_ANY)
+    resources['GatewayRoute'] = igw_route
+    return resources
+    
+def create_private_subnet(name, index, cidr, vpc, nat, tags = []):
+    prefix = '{}Private'.format(name)
+    resources = _create_subnet(prefix, index, cidr, vpc, tags)
+    subnet = resources['Subnet']
+    nat_route = Route('{}Route'.format(subnet.name),
+                      RouteTableId = Ref(resources['RouteTable']),
+                      DependsOn = nat.name,
+                      InstanceId = Ref(nat),
+                      DestinationCidrBlock = CIDR_ANY)
+    resources['NATRoute'] = nat_route
+    return resources
