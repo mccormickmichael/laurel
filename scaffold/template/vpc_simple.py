@@ -24,9 +24,9 @@ import sys
 from troposphere import FindInMap, GetAtt, Output, Parameter, Ref, Tags, Template
 from troposphere.ec2 import Instance, NetworkAcl, SecurityGroup
 from . import utils, vpc
-from .vpc import NaclBuilder, SecurityGroupRuleBuilder
+from .vpc import NaclBuilder, SecurityGroupRuleBuilder, TemplateBuilderBase
 
-class SimpleVPC(object):
+class SimpleVPC(TemplateBuilderBase):
 
     PARM_KEY_NAME = 'KeyNameParameter'
     PARM_VPC_CIDR = 'VpcCidrParameter'
@@ -40,17 +40,10 @@ class SimpleVPC(object):
     AMI_REGION_MAP = 'AMIRegionMap'
 
     def __init__(self, name, description = 'Simple VPC: 1 public subnet, 1 private subnet'):
-        self.name = name
-        self.stack_name_ref = Ref('AWS::StackName')
-        self.region_ref = Ref('AWS::Region')
-        self.default_tags = Tags(Application = self.stack_name_ref, Name = self.name)
+        super(SimpleVPC, self).__init__(name, description)
         
-        t = Template()
-        t.add_version()
+        t = self.template
 
-        t.add_description(description)
-        t.add_parameter(self._create_parameters())
-        
         t.add_mapping(self.AMI_REGION_MAP, self._create_ami_mapping())
         
         t.add_resource(self._create_vpc_with_gateway())
@@ -60,11 +53,6 @@ class SimpleVPC(object):
         t.add_resource(self._create_private_subnet())
         
         t.add_output(self._create_outputs())
-
-        self.t = t
-
-    def to_json(self):
-        return self.t.to_json()
         
     def _create_parameters(self):
         return [
@@ -133,7 +121,7 @@ class SimpleVPC(object):
                                     SecurityGroupEgress = sg_egress.rules(),
                                     SecurityGroupIngress = sg_ingress.rules(),
                                     Tags = self.default_tags)
-        imageid = FindInMap(self.AMI_REGION_MAP, self.region_ref, 'NAT')
+        imageid = FindInMap(self.AMI_REGION_MAP, vpc.REF_REGION, 'NAT')
         resources = vpc.create_nat_instance(self.name, self.nat_sg, self.pub_subnet, self.PARM_KEY_NAME, imageid, self.default_tags, [self.igw_attach])
         self.nat = resources['Instance']
         return [self.nat_sg, self.nat]
@@ -147,7 +135,7 @@ class SimpleVPC(object):
                                         SecurityGroupEgress = sg_egress.rules(),
                                         SecurityGroupIngress = sg_ingress.rules(),
                                         Tags = self.default_tags)
-        imageid = FindInMap(self.AMI_REGION_MAP, self.region_ref, 'BASTION')
+        imageid = FindInMap(self.AMI_REGION_MAP, vpc.REF_REGION, 'BASTION')
         resources = vpc.create_bastion_instance(self.name, self.bastion_sg, self.pub_subnet, self.PARM_KEY_NAME, imageid, self.default_tags, [self.igw_attach])
         self.bastion = resources['Instance']
         return [self.bastion_sg, self.bastion]

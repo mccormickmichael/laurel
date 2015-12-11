@@ -14,10 +14,13 @@
 # PrivateSubnet0: The ID of private subnet 0
 # PrivateSubnet1: The ID of private subnet 1
 
+from . import utils, vpc
+from .vpc import NaclBuilder, SecurityGroupRuleBuilder, TemplateBuilderBase
+
 from troposphere import Output, Ref, Tags, Template
 from troposphere.ec2 import InternetGateway, NetworkAcl, NetworkAclEntry, PortRange, Route, RouteTable, Subnet, SubnetNetworkAclAssociation, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment
 
-class TwoPublicPrivate(object):
+class TemplateBuilder(TemplateBuilderBase):
 
     PARM_KEY_NAME = 'KeyNameParameter'
     PARM_VPC_CIDR = 'VpcCidrParameter'
@@ -31,23 +34,14 @@ class TwoPublicPrivate(object):
                  description = 'VPC with 2 public subnets and 2 private subnets',
                  pub_subnet_size = 256,
                  priv_subnet_size = 1024):
-        self.name = name
-        self.default_tage = Tags(Application = stack_name_ref, Name = self.name)
-
-        t = Template()
-        t.add_version()
-
-        t.add_description(description)
-
-        self.t = t
-
-    def to_json():
-        return self.t.to_json()
-
+        super(TemplateBuilder, self).__init__(self, name, description)
+        self.pub_subnet_size = pub_subnet_size
+        self.priv_subnet_size = priv_subnet_size
+        
 
 if __name__ == '__main__':
     name = sys.argv[1] if len(sys.argv) > 1 else 'Sample'
-    print TwoPublicPrivate(name).to_json()
+    print TemplateBuilder(name).to_json()
     
 # class RouteBuilder:
 #     def __init__(self, tmpl, acl, prefix, action, egress, cidr_block = '0.0.0.0/0'):

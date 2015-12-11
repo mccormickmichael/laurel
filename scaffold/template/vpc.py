@@ -3,11 +3,14 @@
 # Common functions and builders for VPC Templates
 
 import re
-from troposphere import Base64, GetAZs, Join, Ref, Select
+from troposphere import Base64, GetAZs, Join, Ref, Select, Tags, Template
 from troposphere.ec2 import (Instance, InternetGateway, NetworkAcl, NetworkAclEntry, NetworkInterfaceProperty, PortRange, Route, RouteTable, SecurityGroupRule, Subnet, SubnetNetworkAclAssociation, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment)
 
 CIDR_ANY = '0.0.0.0/0'
 CIDR_NONE = '0.0.0.0/32'
+
+REF_STACK_NAME = Ref('AWS::StackName')
+REF_REGION = Ref('AWS::Region')
 
 cidr_re = re.compile(r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$")
 
@@ -134,6 +137,25 @@ class SecurityGroupRuleBuilder(ProtocolBuilder):
             ToPort = port_to,
             IpProtocol = protocol))
 
+class TemplateBuilderBase(object):
+    def __init__(self, name, description):
+        self.name = name
+        self.default_tags = Tags(Application = REF_STACK_NAME, Name = self.name)
+
+        tmpl = Template()
+        tmpl.add_version()
+        tmpl.add_description(description)
+
+        tmpl.add_parameter(self._create_parameters())
+        
+        self.template = tmpl
+
+    def to_json(self):
+        return self.template.to_json()
+
+    def _create_parameters(self):
+        return []
+        
 def _asref(o):
     return o if isinstance(o, Ref) else Ref(o)
 
@@ -234,3 +256,4 @@ def create_private_subnet(name, index, cidr, vpc, nat, tags = []):
                       DestinationCidrBlock = CIDR_ANY)
     resources['NATRoute'] = nat_route
     return resources
+
