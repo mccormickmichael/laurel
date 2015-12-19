@@ -15,7 +15,6 @@
 # PrivateSubnetCidr: CIDR block of the private subnet. Defaults to 172.16.1.0/24
 #
 # Stack Outputs:
-# NATIP:         The public IP of the NAT server
 # BastionIP:     The public IP of the bastion server
 # PublicSubnet:  The ID of the public subnet
 # PrivateSubnet: The ID of the private subnet
@@ -23,7 +22,7 @@
 import sys
 from troposphere import FindInMap, GetAtt, Output, Parameter, Ref, Tags, Template
 from troposphere.ec2 import Instance, NetworkAcl, SecurityGroup
-from . import utils, vpc
+from . import utils, vpc, cidr
 from .vpc import NaclBuilder, SecurityGroupRuleBuilder, TemplateBuilderBase
 
 class SimpleVPC(TemplateBuilderBase):
@@ -158,7 +157,6 @@ class SimpleVPC(TemplateBuilderBase):
         return [
             Output('PublicSubnet', Value = Ref(self.pub_subnet)),
             Output('PrivateSubnet', Value = Ref(self.priv_subnet)),
-            Output('NATIP', Value = GetAtt(self.nat, 'PublicIp')),
             Output('BastionIP', Value = GetAtt(self.bastion, 'PublicIp'))
             ]
 
