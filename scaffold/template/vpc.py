@@ -5,6 +5,7 @@
 import re
 from troposphere import Base64, GetAZs, Join, Ref, Select, Tags, Template
 from troposphere.ec2 import (Instance, InternetGateway, NetworkAcl, NetworkAclEntry, NetworkInterfaceProperty, PortRange, Route, RouteTable, SecurityGroupRule, Subnet, SubnetNetworkAclAssociation, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment)
+from . import cidr
 
 CIDR_ANY = '0.0.0.0/0'
 CIDR_NONE = '0.0.0.0/32'
@@ -12,7 +13,19 @@ CIDR_NONE = '0.0.0.0/32'
 REF_STACK_NAME = Ref('AWS::StackName')
 REF_REGION = Ref('AWS::Region')
 
-cidr_re = re.compile(r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$")
+AMI_REGION_MAP_NAME = 'AMIRegionMap'
+AMI_REGION_MAP = {
+    'us-east-1' : { 'NAT' : 'ami-303b1458', 'BASTION': 'ami-60b6c60a' },
+    'us-west-1' : { 'NAT' : 'ami-7da94839', 'BASTION': 'ami-d5ea86b5' },
+    'us-west-2' : { 'NAT' : 'ami-69ae8259', 'BASTION': 'ami-f0091d91' }
+    #'eu-west-1'
+    #'eu-west-2'
+    #'eu-central-1'
+    #'sa-east-1'
+    #'ap-southeast-1'
+    #'ap-southeast-2' 
+    #'ap-northeast-1' 
+}
 
 class ProtocolBuilder(object):
     def __init__(self, parent, cidr = None):
@@ -141,28 +154,30 @@ class TemplateBuilderBase(object):
     def __init__(self, name, description):
         self.name = name
         self.default_tags = Tags(Application = REF_STACK_NAME, Name = self.name)
-
-        tmpl = Template()
-        tmpl.add_version()
-        tmpl.add_description(description)
-
-        tmpl.add_parameter(self._create_parameters())
-        
-        self.template = tmpl
+        self.template = Template()
+        self.template.add_version()
+        self.template.add_description(description)
+        self.template.add_mapping(AMI_REGION_MAP_NAME, AMI_REGION_MAP) 
 
     def to_json(self):
         return self.template.to_json()
 
-    def _create_parameters(self):
-        return []
+    def add_parameters(self, parameters):
+        self.template.add_parameter(parameters)
+    
+    def add_resource(self, resource):
+        self.template.add_resource(resource)
+
+    def add_output(self, outputs):
+        self.template.add_output(outputs)
         
 def _asref(o):
     return o if isinstance(o, Ref) else Ref(o)
 
 def create_vpc_with_inet_gateway(name, vpc_cidr, tags = []):
-    cidr = Ref(vpc_cidr) if cidr_re.match(vpc_cidr) is None else vpc_cidr
+    cidr_block = Ref(vpc_cidr) if cidr.CIDR_RE.match(vpc_cidr) is None else vpc_cidr
     vpc = VPC('{}VPC'.format(name),
-              CidrBlock = cidr,
+              CidrBlock = cidr_block,
               Tags = tags)
     igw = InternetGateway('{}InternetGateway'.format(name),
                           Tags = tags)

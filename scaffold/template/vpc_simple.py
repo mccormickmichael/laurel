@@ -36,22 +36,17 @@ class SimpleVPC(TemplateBuilderBase):
     DEFAULT_PARM_PUB_CIDR = '172.16.0.0/24'
     DEFAULT_PARM_PRIV_CIDR = '172.16.1.0/24'
 
-    AMI_REGION_MAP = 'AMIRegionMap'
-
     def __init__(self, name, description = 'Simple VPC: 1 public subnet, 1 private subnet'):
         super(SimpleVPC, self).__init__(name, description)
         
-        t = self.template
-
-        t.add_mapping(self.AMI_REGION_MAP, self._create_ami_mapping())
+        self.add_parameters(self._create_parameters())
+        self.add_resource(self._create_vpc_with_gateway())
+        self.add_resource(self._create_public_subnet())
+        self.add_resource(self._create_nat())
+        self.add_resource(self._create_bastion())
+        self.add_resource(self._create_private_subnet())
         
-        t.add_resource(self._create_vpc_with_gateway())
-        t.add_resource(self._create_public_subnet())
-        t.add_resource(self._create_nat())
-        t.add_resource(self._create_bastion())
-        t.add_resource(self._create_private_subnet())
-        
-        t.add_output(self._create_outputs())
+        self.add_output(self._create_outputs())
         
     def _create_parameters(self):
         return [
@@ -80,20 +75,6 @@ class SimpleVPC(TemplateBuilderBase):
                 Default = self.DEFAULT_PARM_PRIV_CIDR
             )]
 
-    def _create_ami_mapping(self):
-        return {
-            'us-east-1' : { 'NAT' : 'ami-303b1458', 'BASTION': 'ami-60b6c60a' },
-            'us-west-1' : { 'NAT' : 'ami-7da94839', 'BASTION': 'ami-d5ea86b5' },
-            'us-west-2' : { 'NAT' : 'ami-69ae8259', 'BASTION': 'ami-f0091d91' }
-            #'eu-west-1'
-            #'eu-west-2'
-            #'eu-central-1'
-            #'sa-east-1'
-            #'ap-southeast-1'
-            #'ap-southeast-2' 
-            #'ap-northeast-1' 
-        }
-        
     def _create_vpc_with_gateway(self):
         resources = vpc.create_vpc_with_inet_gateway(self.name, self.PARM_VPC_CIDR, self.default_tags)
         self.vpc = resources['VPC']
@@ -120,7 +101,7 @@ class SimpleVPC(TemplateBuilderBase):
                                     SecurityGroupEgress = sg_egress.rules(),
                                     SecurityGroupIngress = sg_ingress.rules(),
                                     Tags = self.default_tags)
-        imageid = FindInMap(self.AMI_REGION_MAP, vpc.REF_REGION, 'NAT')
+        imageid = FindInMap(vpc.AMI_REGION_MAP_NAME, vpc.REF_REGION, 'NAT')
         resources = vpc.create_nat_instance(self.name, self.nat_sg, self.pub_subnet, self.PARM_KEY_NAME, imageid, self.default_tags, [self.igw_attach])
         self.nat = resources['Instance']
         return [self.nat_sg, self.nat]
@@ -134,7 +115,7 @@ class SimpleVPC(TemplateBuilderBase):
                                         SecurityGroupEgress = sg_egress.rules(),
                                         SecurityGroupIngress = sg_ingress.rules(),
                                         Tags = self.default_tags)
-        imageid = FindInMap(self.AMI_REGION_MAP, vpc.REF_REGION, 'BASTION')
+        imageid = FindInMap(vpc.AMI_REGION_MAP_NAME, vpc.REF_REGION, 'BASTION')
         resources = vpc.create_bastion_instance(self.name, self.bastion_sg, self.pub_subnet, self.PARM_KEY_NAME, imageid, self.default_tags, [self.igw_attach])
         self.bastion = resources['Instance']
         return [self.bastion_sg, self.bastion]
