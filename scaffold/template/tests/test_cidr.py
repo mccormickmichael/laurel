@@ -31,6 +31,9 @@ class TestCidrBlock(unittest.TestCase):
         expected = cidr.CidrBlock('172.16.8.0/20')
         self.assertEqual(expected, actual)
 
+    def test_block_size(self):
+        self.assertEqual(2048, cidr.CidrBlock('172.16.0.0/21').block_size())
+
     def test_equal(self):
         cb1 = cidr.CidrBlock('192.168.0.0/24')
         cb2 = cidr.CidrBlock('192.168.0.0/24')

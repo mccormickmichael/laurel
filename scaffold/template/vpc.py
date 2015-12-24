@@ -162,7 +162,7 @@ class TemplateBuilderBase(object):
     def to_json(self):
         return self.template.to_json()
 
-    def add_parameters(self, parameters):
+    def add_parameter(self, parameters):
         self.template.add_parameter(parameters)
     
     def add_resource(self, resource):
@@ -272,3 +272,7 @@ def create_private_subnet(name, index, cidr, vpc, nat, tags = []):
     resources['NATRoute'] = nat_route
     return resources
 
+def az_name(az_suffix):
+    """ Create an availability zone in the current region from the az's suffix.
+        e.g. 'd' -> 'us-east-1d'"""
+    return Join('', [REF_REGION, az_suffix])

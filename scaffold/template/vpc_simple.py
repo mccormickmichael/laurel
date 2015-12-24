@@ -39,7 +39,7 @@ class SimpleVPC(TemplateBuilderBase):
     def __init__(self, name, description = 'Simple VPC: 1 public subnet, 1 private subnet'):
         super(SimpleVPC, self).__init__(name, description)
         
-        self.add_parameters(self._create_parameters())
+        self.add_parameter(self._create_parameters())
         self.add_resource(self._create_vpc_with_gateway())
         self.add_resource(self._create_public_subnet())
         self.add_resource(self._create_nat())

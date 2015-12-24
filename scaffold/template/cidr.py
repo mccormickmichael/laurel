@@ -72,6 +72,9 @@ class CidrBlock(object):
     def mask_size(self):
         return self._mask_size
 
+    def block_size(self):
+        return 1 << (32 - self.mask_size())
+
     def mask_str(self):
         return _format_quad_str(_to_quad(self._mask_bits))
 
