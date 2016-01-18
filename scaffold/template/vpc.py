@@ -19,12 +19,12 @@ AMI_REGION_MAP = {
     'us-west-1' : { 'NAT' : 'ami-7da94839', 'BASTION': 'ami-d5ea86b5' },
     'us-west-2' : { 'NAT' : 'ami-69ae8259', 'BASTION': 'ami-f0091d91' }
     #'eu-west-1'
-    #'eu-west-2'
     #'eu-central-1'
     #'sa-east-1'
     #'ap-southeast-1'
     #'ap-southeast-2' 
-    #'ap-northeast-1' 
+    #'ap-northeast-1'
+    #'ap-northeast-2'
 }
 
 class ProtocolBuilder(object):
@@ -43,6 +43,11 @@ class ProtocolBuilder(object):
     
     def ephemeral(self, cidr = None):
         return self.tcp('EphemeralReturn', 32767, 65535, cidr)
+
+    def any(self, cidr = None):
+        cidr = cidr or self.cidr
+        self.parent._addrule('Any', self.action(), '-1', 0, 65535, cidr)
+        return self
 
     def tcp(self, name, port_from, port_to, cidr = None):
         cidr = cidr or self.cidr
@@ -162,11 +167,16 @@ class TemplateBuilderBase(object):
     def to_json(self):
         return self.template.to_json()
 
+    def add_mapping(self, mapping_name, mapping):
+        self.template.add_mapping(mapping_name, mapping)
+
     def add_parameter(self, parameters):
         self.template.add_parameter(parameters)
     
     def add_resource(self, resource):
         self.template.add_resource(resource)
+    def add_resources(self, resources):
+        self.add_resource(resources)
 
     def add_output(self, outputs):
         self.template.add_output(outputs)
