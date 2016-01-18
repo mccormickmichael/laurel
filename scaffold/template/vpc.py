@@ -184,105 +184,47 @@ class TemplateBuilderBase(object):
 def _asref(o):
     return o if isinstance(o, Ref) else Ref(o)
 
-def create_vpc_with_inet_gateway(name, vpc_cidr, tags = []):
-    cidr_block = Ref(vpc_cidr) if cidr.CIDR_RE.match(vpc_cidr) is None else vpc_cidr
-    vpc = VPC('{}VPC'.format(name),
-              CidrBlock = cidr_block,
-              Tags = tags)
-    igw = InternetGateway('{}InternetGateway'.format(name),
-                          Tags = tags)
-    attach = VPCGatewayAttachment('{}GatewayAttachment'.format(name),
-                                  InternetGatewayId = Ref(igw),
-                                  VpcId = Ref(vpc))
-    return {
-        'VPC': vpc,
-        'InternetGateway': igw,
-        'GatewayAttachment' : attach
-    }
 
-def create_nat_instance(name, sg, subnet, key_name, image_id, tags = [], dependencies = []):
-    return _create_util_instance('{}NAT'.format(name), sg, subnet, key_name, image_id, tags, dependencies)
+def az_name(region, az):
+    if az.startswith(region):
+        return az
+    return region + az.lower()
 
-def create_bastion_instance(name, sg, subnet, key_name, image_id, tags = [], dependencies = []):
-    return _create_util_instance('{}Bastion'.format(name), sg, subnet, key_name, image_id, tags, dependencies)
+def merge_tags(src, dest):
+    """Merge Troposphere Tag objects. Dest values override src values."""
+    d = {}
+    for st in src.tags + dest.tags:
+        d[st['Key']] = st['Value']
+    return Tags(**d)
 
-def _create_util_instance(name, sg, subnet, key_name, image_id, tags, dependencies):
-    dependency_names = [d.name for d in dependencies]
-    ni = NetworkInterfaceProperty(
-        AssociatePublicIpAddress = True,
-        DeleteOnTermination = True,
-        DeviceIndex = 0,
-        GroupSet = [_asref(sg)],
-        SubnetId = _asref(subnet)
-    )
-    instance = Instance(name,
-                        DependsOn = dependency_names,
-                        KeyName = _asref(key_name),
-                        SourceDestCheck = 'false',
-                        ImageId = image_id,
-                        InstanceType = 't2.micro',
-                        NetworkInterfaces = [ni],
-                        Tags = tags,
-                        UserData = Base64(Join('\n', [
-                            '#!/bin/bash',
-                            'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
-                        ])))
-    return {
-        'Instance': instance
-    }
 
-def _create_subnet(prefix, az_index, cidr, vpc, tags = []):
-    prefix = '{}Subnet{}'.format(prefix, az_index)
-    subnet = Subnet(prefix,
-                    AvailabilityZone = Select(az_index, GetAZs()),
-                    CidrBlock = _asref(cidr),
-                    MapPublicIpOnLaunch = False,
-                    VpcId = Ref(vpc),
-                    Tags = tags)
-    route_table = RouteTable('{}RT'.format(prefix),
-                             VpcId = Ref(vpc),
-                             Tags = tags)
-    nacl = NetworkAcl('{}Nacl'.format(prefix),
-                      VpcId = Ref(vpc),
-                      Tags = tags)
-    rt_assoc = SubnetRouteTableAssociation('{}Assoc'.format(route_table.name),
-                                           SubnetId = Ref(subnet),
-                                           RouteTableId = Ref(route_table))
-    nacl_assoc = SubnetNetworkAclAssociation('{}Assoc'.format(nacl.name),
-                                             SubnetId = Ref(subnet),
-                                             NetworkAclId = Ref(nacl))
-    return {
-        'Subnet'         : subnet,
-        'RouteTable'     : route_table,
-        'NetworkAcl'     : nacl,
-        'RouteTableAssoc': rt_assoc,
-        'NaclAssoc'      : nacl_assoc
-    }
+# def create_nat_instance(name, sg, subnet, key_name, image_id, tags = [], dependencies = []):
+#     return _create_util_instance('{}NAT'.format(name), sg, subnet, key_name, image_id, tags, dependencies)
 
-def create_public_subnet(name, index, cidr, vpc, gateway, tags = []):
-    prefix = '{}Public'.format(name)
-    resources = _create_subnet(prefix, index, cidr, vpc, tags)
-    igw_route = Route('{}Route'.format(resources['Subnet'].name),
-                      RouteTableId = Ref(resources['RouteTable']),
-                      DependsOn = gateway.name,
-                      GatewayId = Ref(gateway),
-                      DestinationCidrBlock = CIDR_ANY)
-    resources['GatewayRoute'] = igw_route
-    return resources
-    
-def create_private_subnet(name, index, cidr, vpc, nat, tags = []):
-    prefix = '{}Private'.format(name)
-    resources = _create_subnet(prefix, index, cidr, vpc, tags)
-    subnet = resources['Subnet']
-    nat_route = Route('{}Route'.format(subnet.name),
-                      RouteTableId = Ref(resources['RouteTable']),
-                      DependsOn = nat.name,
-                      InstanceId = Ref(nat),
-                      DestinationCidrBlock = CIDR_ANY)
-    resources['NATRoute'] = nat_route
-    return resources
+# def create_bastion_instance(name, sg, subnet, key_name, image_id, tags = [], dependencies = []):
+#     return _create_util_instance('{}Bastion'.format(name), sg, subnet, key_name, image_id, tags, dependencies)
 
-def az_name(az_suffix):
-    """ Create an availability zone in the current region from the az's suffix.
-        e.g. 'd' -> 'us-east-1d'"""
-    return Join('', [REF_REGION, az_suffix])
+# def _create_util_instance(name, sg, subnet, key_name, image_id, tags, dependencies):
+#     dependency_names = [d.name for d in dependencies]
+#     ni = NetworkInterfaceProperty(
+#         AssociatePublicIpAddress = True,
+#         DeleteOnTermination = True,
+#         DeviceIndex = 0,
+#         GroupSet = [_asref(sg)],
+#         SubnetId = _asref(subnet)
+#     )
+#     instance = Instance(name,
+#                         DependsOn = dependency_names,
+#                         KeyName = _asref(key_name),
+#                         SourceDestCheck = 'false',
+#                         ImageId = image_id,
+#                         InstanceType = 't2.micro',
+#                         NetworkInterfaces = [ni],
+#                         Tags = tags,
+#                         UserData = Base64(Join('\n', [
+#                             '#!/bin/bash',
+#                             'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
+#                         ])))
+#     return {
+#         'Instance': instance
+#     }

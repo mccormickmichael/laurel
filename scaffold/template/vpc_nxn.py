@@ -27,7 +27,7 @@
 
 import sys
 import troposphere as tp
-from . import cidr, utils, vpc
+from . import cidr, vpc
 
 class NxNVPC(vpc.TemplateBuilderBase):
 
@@ -61,12 +61,15 @@ class NxNVPC(vpc.TemplateBuilderBase):
         # self.create_outputs()
 
     def create_vpc(self):
-        resources = vpc.create_vpc_with_inet_gateway(self.name, self.vpc_cidr, self.default_tags)
-        self.igw = resources['InternetGateway']
-        self.vpc = resources['VPC']
-        self.igw_attach = resources['GatewayAttachment']
-
-        self.add_resources(resources.values())
+        self.vpc = tp.ec2.VPC('{}VPC'.format(self.name),
+                              CidrBlock = self.vpc_cidr,
+                              Tags = self.default_tags)
+        self.igw = tp.ec2.InternetGateway('{}InternetGateway'.format(self.name),
+                                          Tags = self.default_tags)
+        self.igw_attach = tp.ec2.VPCGatewayAttachment('{}GatewayAttachment'.format(self.name),
+                                                      InternetGatewayId = tp.Ref(self.igw),
+                                                      VpcId = tp.Ref(self.vpc))
+        self.add_resources([self.vpc, self.igw, self.igw_attach])
 
     def create_public_routes(self):
         self.public_route_table = tp.ec2.RouteTable('{}PublicRT'.format(self.name),
@@ -94,7 +97,7 @@ class NxNVPC(vpc.TemplateBuilderBase):
         self.add_resources(builder.resources())
 
     def create_subnets_in_az(self, az):
-        az = utils.normalize_az(self.region, az)
+        az = vpc.az_name(self.region, az)
         pub_subnet = self.create_public_subnet(az)
 
         priv_rt = self.create_private_route_table(az)
