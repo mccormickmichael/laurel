@@ -88,6 +88,8 @@ class CidrBlock(object):
 
 class CidrBlockAllocator(object):
     def __init__(self, initial_block):
+        if isinstance(initial_block, str):
+            initial_block = CidrBlock(initial_block)
         self._initial_block = initial_block
         self._free_ip = initial_block._ip_bits
         self._exceed_ip = self._free_ip + (1 << (32 - initial_block._mask_size))

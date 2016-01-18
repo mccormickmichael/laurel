@@ -52,6 +52,11 @@ class TestCidrBlockAllocator(unittest.TestCase):
         self.cb = cidr.CidrBlock('10.0.0.0/8')
         self.ba = cidr.CidrBlockAllocator(self.cb)
 
+    def test_string_constructor(self):
+        cidr_s = '172.17.0.0/16'
+        ba = cidr.CidrBlockAllocator(cidr_s)
+        self.assertEquals(cidr.CidrBlock(cidr_s), ba._initial_block)
+
     def test_normalize_block_size_tiny(self):
         self.assertEqual(16, self.ba._normalize_block_size(1))
 
