@@ -179,8 +179,9 @@ class TemplateBuilderBase(object):
     
     def add_resource(self, resource):
         self.template.add_resource(resource)
-    def add_resources(self, resources):
-        self.add_resource(resources)
+        
+    def add_resources(self, *resources):
+        self.add_resource(list(resources))
 
     def add_output(self, outputs):
         self.template.add_output(outputs)

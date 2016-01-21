@@ -69,7 +69,7 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
                                      VPCZoneIdentifier = self.subnet_ids,
                                      Tags = asgtag(self._rename('{} NAT')))
         # TODO: Copy ALL default tags to AutoScalingTags
-        self.add_resources([group, lc])
+        self.add_resources(group, lc)
         return group
 
     def create_nat_iam_profile(self):
@@ -96,7 +96,7 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
         profile = iam.InstanceProfile('NATInstanceProfile',
                                       Path = '/',
                                       Roles = [tp.Ref(role)])
-        self.add_resources([role, profile])
+        self.add_resources(role, profile)
         return profile
 
     def _create_nat_userdata(self):
@@ -123,8 +123,8 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
                                      LaunchConfigurationName = tp.Ref(lc),
                                      VPCZoneIdentifier = self.subnet_ids,
                                      Tags = asgtag(self._rename('{} Bastion')))
-        self.add_resources([group, lc])
-        return asg
+        self.add_resources(group, lc)
+        return group
 
     def _create_bastion_userdata(self):
         startup = [

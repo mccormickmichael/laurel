@@ -71,7 +71,7 @@ class NxNVPC(vpc.TemplateBuilderBase):
         self.igw_attach = tp.ec2.VPCGatewayAttachment('{}GatewayAttachment'.format(self.name),
                                                       InternetGatewayId = tp.Ref(self.igw),
                                                       VpcId = tp.Ref(self.vpc))
-        self.add_resources([self.vpc, self.igw, self.igw_attach])
+        self.add_resources(self.vpc, self.igw, self.igw_attach)
         self.add_output(tp.Output('VpcId', Value = tp.Ref(self.vpc)))
         self.add_output(tp.Output('VpcCidr', Value = self.vpc_cidr))
 
@@ -85,7 +85,7 @@ class NxNVPC(vpc.TemplateBuilderBase):
                              GatewayId = tp.Ref(self.igw),
                              DestinationCidrBlock = vpc.CIDR_ANY)
         
-        self.add_resources([self.public_route_table, route])
+        self.add_resources(self.public_route_table, route)
 
     def create_public_nacl(self):
         self.public_nacl = tp.ec2.NetworkAcl('{}PublicNacl'.format(self.name),
@@ -98,7 +98,7 @@ class NxNVPC(vpc.TemplateBuilderBase):
         builder = vpc.NaclBuilder(pub_nacl)
         builder.ingress().allow().http().https().ssh().nat_ephemeral()
         builder.egress().allow().any()
-        self.add_resources(builder.resources())
+        self.add_resource(builder.resources())
 
     def create_subnets_in_az(self, az):
         az = vpc.az_name(self.region, az)
@@ -153,7 +153,7 @@ class NxNVPC(vpc.TemplateBuilderBase):
         builder = vpc.NaclBuilder(nacl)
         builder.ingress().allow(self.vpc_cidr).http().https().ssh().nat_ephemeral()
         builder.egress().allow().any()
-        self.add_resources(builder.resources())
+        self.add_resource(builder.resources())
 
 if __name__ == '__main__':
     name = sys.argv[1] if len(sys.argv) > 1 else 'Simple'
