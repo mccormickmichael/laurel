@@ -65,6 +65,7 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
                                                 SecurityGroups = [tp.Ref(sg)],
                                                 KeyName = tp.Ref(self.BASTION_KEY_PARM_NAME),
                                                 IamInstanceProfile = tp.Ref(profile),
+                                                InstanceMonitoring = False,
                                                 AssociatePublicIpAddress = True,
                                                 UserData = self._create_nat_userdata())
         asg = tp.autoscaling.AutoScalingGroup('NATASG',
@@ -120,6 +121,7 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
                                                 InstanceType = self.bastion_instance_type,
                                                 SecurityGroups = [tp.Ref(sg)],
                                                 KeyName = tp.Ref(self.BASTION_KEY_PARM_NAME),
+                                                InstanceMonitoring = False,
                                                 AssociatePublicIpAddress = True,
                                                 UserData = self._create_bastion_userdata())
         asg = tp.autoscaling.AutoScalingGroup('BastionASG',
