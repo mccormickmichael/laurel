@@ -1,17 +1,17 @@
 #!/usr/bin/python
 
 # Define a NAT ASG and a Bastion ASG. Depends on a network stack to be defined.
-
-
+# TODO: template parameters
+# TODO: stack parameters
+# TODO: stack outputs
 
 import sys
-import awacs.aws
-import awacs.sts
-import troposphere.ec2
-import troposphere.iam
-import troposphere.autoscaling
+import troposphere.ec2 as ec2
+import troposphere.iam as iam
+import troposphere.autoscaling as asg
 import troposphere as tp
 from . import vpc # TODO TemplateBuilderBase should be in __init__
+from . import asgtag
 
 class ServicesTemplate(vpc.TemplateBuilderBase):
 
@@ -47,39 +47,33 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
     def create_nat(self):
         nat_sg = self.create_nat_sg()
         nat_asg = self.create_nat_asg(nat_sg)
-        # ENI?
-        # IAM Profile?
 
     def create_bastion(self):
         bastion_sg = self.create_bastion_sg()
         bastion_asg = self.create_bastion_asg(bastion_sg)
-        # EIP?
-        # IAM Profile?
-
 
     def create_nat_asg(self, sg):
         profile = self.create_nat_iam_profile()
-        lc = tp.autoscaling.LaunchConfiguration('NATLC',
-                                                ImageId = tp.FindInMap(vpc.AMI_REGION_MAP_NAME, vpc.REF_REGION, 'NAT'),
-                                                InstanceType = self.nat_instance_type,
-                                                SecurityGroups = [tp.Ref(sg)],
-                                                KeyName = tp.Ref(self.BASTION_KEY_PARM_NAME),
-                                                IamInstanceProfile = tp.Ref(profile),
-                                                InstanceMonitoring = False,
-                                                AssociatePublicIpAddress = True,
-                                                UserData = self._create_nat_userdata())
-        asg = tp.autoscaling.AutoScalingGroup('NATASG',
-                                              MinSize = 1, MaxSize = 1,
-                                              LaunchConfigurationName = tp.Ref(lc),
-                                              
-                                              VPCZoneIdentifier = self.subnet_ids,
-                                              Tags = tp.autoscaling.Tags(Name = 'NAT'))
+        lc = asg.LaunchConfiguration('NATLC',
+                                     ImageId = tp.FindInMap(vpc.AMI_REGION_MAP_NAME, vpc.REF_REGION, 'NAT'),
+                                     InstanceType = self.nat_instance_type,
+                                     SecurityGroups = [tp.Ref(sg)],
+                                     KeyName = tp.Ref(self.BASTION_KEY_PARM_NAME),
+                                     IamInstanceProfile = tp.Ref(profile),
+                                     InstanceMonitoring = False,
+                                     AssociatePublicIpAddress = True,
+                                     UserData = self._create_nat_userdata())
+        group = asg.AutoScalingGroup('NATASG',
+                                     MinSize = 1, MaxSize = 1,
+                                     LaunchConfigurationName = tp.Ref(lc),
+                                     VPCZoneIdentifier = self.subnet_ids,
+                                     Tags = asgtag(self._rename('{} NAT')))
         # TODO: Copy ALL default tags to AutoScalingTags
-        self.add_resources([asg, lc])
-        return asg
+        self.add_resources([group, lc])
+        return group
 
     def create_nat_iam_profile(self):
-        role = tp.iam.Role('NATInstanceRole',
+        role = iam.Role('NATInstanceRole',
                            AssumeRolePolicyDocument = {
                                'Statement' : [ {
                                    'Effect' : 'Allow',
@@ -88,7 +82,7 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
                                } ]
                            },
                            Policies = [
-                               tp.iam.Policy(
+                               iam.Policy(
                                    PolicyName = 'NATInstance',
                                    PolicyDocument = {
                                        'Statement' : [ {
@@ -99,9 +93,9 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
                                    }
                                )
                            ])
-        profile = tp.iam.InstanceProfile('NATInstanceProfile',
-                                         Path = '/',
-                                         Roles = [tp.Ref(role)])
+        profile = iam.InstanceProfile('NATInstanceProfile',
+                                      Path = '/',
+                                      Roles = [tp.Ref(role)])
         self.add_resources([role, profile])
         return profile
 
@@ -116,21 +110,20 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
         return tp.Base64(tp.Join('\n', startup))
 
     def create_bastion_asg(self, sg):
-        lc = tp.autoscaling.LaunchConfiguration('BastionLC',
-                                                ImageId = tp.FindInMap(vpc.AMI_REGION_MAP_NAME, vpc.REF_REGION, 'BASTION'),
-                                                InstanceType = self.bastion_instance_type,
-                                                SecurityGroups = [tp.Ref(sg)],
-                                                KeyName = tp.Ref(self.BASTION_KEY_PARM_NAME),
-                                                InstanceMonitoring = False,
-                                                AssociatePublicIpAddress = True,
-                                                UserData = self._create_bastion_userdata())
-        asg = tp.autoscaling.AutoScalingGroup('BastionASG',
-                                              MinSize = 1, MaxSize = 1,
-                                              LaunchConfigurationName = tp.Ref(lc),
-                                              VPCZoneIdentifier = self.subnet_ids,
-                                              Tags = tp.autoscaling.Tags(Name = 'Bastion'))
-        # TODO: Copy ALL default tags to AutoScalingTags
-        self.add_resources([asg, lc])
+        lc = asg.LaunchConfiguration('BastionLC',
+                                     ImageId = tp.FindInMap(vpc.AMI_REGION_MAP_NAME, vpc.REF_REGION, 'BASTION'),
+                                     InstanceType = self.bastion_instance_type,
+                                     SecurityGroups = [tp.Ref(sg)],
+                                     KeyName = tp.Ref(self.BASTION_KEY_PARM_NAME),
+                                     InstanceMonitoring = False,
+                                     AssociatePublicIpAddress = True,
+                                     UserData = self._create_bastion_userdata())
+        group = asg.AutoScalingGroup('BastionASG',
+                                     MinSize = 1, MaxSize = 1,
+                                     LaunchConfigurationName = tp.Ref(lc),
+                                     VPCZoneIdentifier = self.subnet_ids,
+                                     Tags = asgtag(self._rename('{} Bastion')))
+        self.add_resources([group, lc])
         return asg
 
     def _create_bastion_userdata(self):
@@ -141,20 +134,20 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
         return tp.Base64(tp.Join('\n', startup))
 
     def create_nat_sg(self):
-        sg = tp.ec2.SecurityGroup('NATSecurityGroup',
-                                  GroupDescription = 'NAT Instance Security Group',
-                                  SecurityGroupIngress = vpc.SecurityGroupRuleBuilder(self.vpc_cidr).any().rules(),
-                                  VpcId = self.vpc_id,
-                                  Tags = self.default_tags)
+        sg = ec2.SecurityGroup('NATSecurityGroup',
+                               GroupDescription = 'NAT Instance Security Group',
+                               SecurityGroupIngress = vpc.SecurityGroupRuleBuilder(self.vpc_cidr).any().rules(),
+                               VpcId = self.vpc_id,
+                               Tags = self.default_tags)
         self.add_resource(sg)
         return sg
 
     def create_bastion_sg(self):
-        sg = tp.ec2.SecurityGroup('BastionSecurityGroup',
-                                  GroupDescription = 'Bastion Instance Security Group',
-                                  SecurityGroupIngress = vpc.SecurityGroupRuleBuilder(vpc.CIDR_ANY).ssh().rules(),
-                                  VpcId = self.vpc_id,
-                                  Tags = self.default_tags)
+        sg = ec2.SecurityGroup('BastionSecurityGroup',
+                               GroupDescription = 'Bastion Instance Security Group',
+                               SecurityGroupIngress = vpc.SecurityGroupRuleBuilder(vpc.CIDR_ANY).ssh().rules(),
+                               VpcId = self.vpc_id,
+                               Tags = self.default_tags)
         self.add_resource(sg)
         return sg
 

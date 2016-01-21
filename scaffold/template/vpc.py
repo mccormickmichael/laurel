@@ -3,15 +3,16 @@
 # Common functions and builders for VPC Templates
 
 import re
-from troposphere import Base64, GetAZs, Join, Ref, Select, Tags, Template
-from troposphere.ec2 import (Instance, InternetGateway, NetworkAcl, NetworkAclEntry, NetworkInterfaceProperty, PortRange, Route, RouteTable, SecurityGroupRule, Subnet, SubnetNetworkAclAssociation, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment)
+import troposphere as tp
+import troposphere.ec2 as ec2
 from . import cidr
+from . import retag
 
 CIDR_ANY = '0.0.0.0/0'
 CIDR_NONE = '0.0.0.0/32'
 
-REF_STACK_NAME = Ref('AWS::StackName')
-REF_REGION = Ref('AWS::Region')
+REF_STACK_NAME = tp.Ref('AWS::StackName')
+REF_REGION = tp.Ref('AWS::Region')
 
 AMI_REGION_MAP_NAME = 'AMIRegionMap'
 AMI_REGION_MAP = {
@@ -130,14 +131,14 @@ class NaclBuilder(object):
     
     def _addrule(self, name, number, protocol, from_port, to_port, egress, action, cidr = None):
         cidr = cidr or self.cidr
-        rule = NetworkAclEntry('{0}{1}'.format(self.nacl.name, name),
-                               NetworkAclId = Ref(self.nacl),
-                               RuleNumber = str(number),
-                               Protocol = protocol,
-                               PortRange = PortRange(From = from_port, To = to_port),
-                               Egress = egress,
-                               RuleAction = action,
-                               CidrBlock = cidr)
+        rule = ec2.NetworkAclEntry('{0}{1}'.format(self.nacl.name, name),
+                                   NetworkAclId = tp.Ref(self.nacl),
+                                   RuleNumber = str(number),
+                                   Protocol = protocol,
+                                   PortRange = ec2.PortRange(From = from_port, To = to_port),
+                                   Egress = egress,
+                                   RuleAction = action,
+                                   CidrBlock = cidr)
         self.entries.append(rule)
         
 class SecurityGroupRuleBuilder(ProtocolBuilder):
@@ -152,7 +153,7 @@ class SecurityGroupRuleBuilder(ProtocolBuilder):
         return ''
     
     def _addrule(self, name_ignored, action_ignored, protocol, port_from, port_to, cidr):
-        self._rules.append(SecurityGroupRule(
+        self._rules.append(ec2.SecurityGroupRule(
             CidrIp = cidr,
             FromPort = port_from,
             ToPort = port_to,
@@ -161,8 +162,8 @@ class SecurityGroupRuleBuilder(ProtocolBuilder):
 class TemplateBuilderBase(object):
     def __init__(self, name, description):
         self.name = name
-        self.default_tags = Tags(Application = REF_STACK_NAME, Name = self.name)
-        self.template = Template()
+        self.default_tags = tp.Tags(Application = REF_STACK_NAME, Name = self.name)
+        self.template = tp.Template()
         self.template.add_version()
         self.template.add_description(description)
         self.template.add_mapping(AMI_REGION_MAP_NAME, AMI_REGION_MAP) 
@@ -183,51 +184,15 @@ class TemplateBuilderBase(object):
 
     def add_output(self, outputs):
         self.template.add_output(outputs)
+
+    def _rename(self, fmt):
+        return retag(self.default_tags, Name = fmt.format(self.name))
         
 def _asref(o):
-    return o if isinstance(o, Ref) else Ref(o)
+    return o if isinstance(o, tp.Ref) else tp.Ref(o)
 
 
 def az_name(region, az):
     if az.startswith(region):
         return az
     return region + az.lower()
-
-def merge_tags(src, dest):
-    """Merge Troposphere Tag objects. Dest values override src values."""
-    d = {}
-    for st in src.tags + dest.tags:
-        d[st['Key']] = st['Value']
-    return Tags(**d)
-
-
-# def create_nat_instance(name, sg, subnet, key_name, image_id, tags = [], dependencies = []):
-#     return _create_util_instance('{}NAT'.format(name), sg, subnet, key_name, image_id, tags, dependencies)
-
-# def create_bastion_instance(name, sg, subnet, key_name, image_id, tags = [], dependencies = []):
-#     return _create_util_instance('{}Bastion'.format(name), sg, subnet, key_name, image_id, tags, dependencies)
-
-# def _create_util_instance(name, sg, subnet, key_name, image_id, tags, dependencies):
-#     dependency_names = [d.name for d in dependencies]
-#     ni = NetworkInterfaceProperty(
-#         AssociatePublicIpAddress = True,
-#         DeleteOnTermination = True,
-#         DeviceIndex = 0,
-#         GroupSet = [_asref(sg)],
-#         SubnetId = _asref(subnet)
-#     )
-#     instance = Instance(name,
-#                         DependsOn = dependency_names,
-#                         KeyName = _asref(key_name),
-#                         SourceDestCheck = 'false',
-#                         ImageId = image_id,
-#                         InstanceType = 't2.micro',
-#                         NetworkInterfaces = [ni],
-#                         Tags = tags,
-#                         UserData = Base64(Join('\n', [
-#                             '#!/bin/bash',
-#                             'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
-#                         ])))
-#     return {
-#         'Instance': instance
-#     }

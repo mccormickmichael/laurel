@@ -31,6 +31,7 @@
 import sys
 import troposphere as tp
 from . import cidr, vpc
+from . import retag
 
 class NxNVPC(vpc.TemplateBuilderBase):
 
@@ -77,7 +78,7 @@ class NxNVPC(vpc.TemplateBuilderBase):
     def create_public_routes(self):
         self.public_route_table = tp.ec2.RouteTable('{}PublicRT'.format(self.name),
                                                     VpcId = tp.Ref(self.vpc),
-                                                    Tags = self.default_tags)
+                                                    Tags = self._rename('{} Public'))
         route = tp.ec2.Route('{}PublicRoute'.format(self.name),
                              RouteTableId = tp.Ref(self.public_route_table),
                              DependsOn = self.igw.name,
@@ -106,12 +107,13 @@ class NxNVPC(vpc.TemplateBuilderBase):
         priv_subnet = self.create_private_subnet(az, self.private_rt)
 
     def _create_subnet(self, prefix, az, size, nacl, rt):
-        subnet = tp.ec2.Subnet('{}{}Subnet{}'.format(self.name, prefix, az[-1].upper()),
+        az_suffix = az[-1].upper()
+        subnet = tp.ec2.Subnet('{}{}Subnet{}'.format(self.name, prefix, az_suffix),
                                AvailabilityZone = az,
                                CidrBlock = str(self.vpc_cidr_alloc.alloc(size)),
                                MapPublicIpOnLaunch = False,
                                VpcId = tp.Ref(self.vpc),
-                               Tags = self.default_tags)
+                               Tags = self._rename('{} ' + prefix + az_suffix))
         self.add_resource(subnet)
         self.add_resource(tp.ec2.SubnetRouteTableAssociation('{}{}RTAssoc'.format(subnet.name, prefix),
                                                              SubnetId = tp.Ref(subnet),
@@ -136,7 +138,7 @@ class NxNVPC(vpc.TemplateBuilderBase):
     def create_private_route_table(self):
         self.private_rt = tp.ec2.RouteTable('{}PrivateRT'.format(self.name),
                                            VpcId = tp.Ref(self.vpc),
-                                           Tags = self.default_tags)
+                                            Tags = self._rename('{} Private'))
         self.add_resource(self.private_rt)
         self.add_output(tp.Output('PrivateRT', Value = tp.Ref(self.private_rt)))
 
