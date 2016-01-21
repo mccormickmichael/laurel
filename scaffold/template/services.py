@@ -64,11 +64,13 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
                                                 InstanceType = self.nat_instance_type,
                                                 SecurityGroups = [tp.Ref(sg)],
                                                 KeyName = tp.Ref(self.BASTION_KEY_PARM_NAME),
-                                                AssociatePublicIpAddress = False,
+                                                IamInstanceProfile = tp.Ref(profile),
+                                                AssociatePublicIpAddress = True,
                                                 UserData = self._create_nat_userdata())
         asg = tp.autoscaling.AutoScalingGroup('NATASG',
                                               MinSize = 1, MaxSize = 1,
                                               LaunchConfigurationName = tp.Ref(lc),
+                                              
                                               VPCZoneIdentifier = self.subnet_ids,
                                               Tags = tp.autoscaling.Tags(Name = 'NAT'))
         # TODO: Copy ALL default tags to AutoScalingTags
@@ -103,12 +105,14 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
         return profile
 
     def _create_nat_userdata(self):
-        commands = [
+        startup = [
+            "#!/bin/bash",
+            "yum update -y && yum install -y yum-cron && chkconfig yum-cron on",
             "INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id`",
             "aws ec2 delete-route --destination-cidr-block 0.0.0.0/0 --route-table-id {} --region {}".format(self.route_table_id, self.region),
             "aws ec2 create-route --route-table-id {} --destination-cidr-block 0.0.0.0/0 --instance-id $INS_ID --region {}".format(self.route_table_id, self.region)
         ]
-        return tp.Base64(tp.Join('\n', commands))
+        return tp.Base64(tp.Join('\n', startup))
 
     def create_bastion_asg(self, sg):
         lc = tp.autoscaling.LaunchConfiguration('BastionLC',
@@ -116,7 +120,8 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
                                                 InstanceType = self.bastion_instance_type,
                                                 SecurityGroups = [tp.Ref(sg)],
                                                 KeyName = tp.Ref(self.BASTION_KEY_PARM_NAME),
-                                                AssociatePublicIpAddress = True)
+                                                AssociatePublicIpAddress = True,
+                                                UserData = self._create_bastion_userdata())
         asg = tp.autoscaling.AutoScalingGroup('BastionASG',
                                               MinSize = 1, MaxSize = 1,
                                               LaunchConfigurationName = tp.Ref(lc),
@@ -125,6 +130,13 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
         # TODO: Copy ALL default tags to AutoScalingTags
         self.add_resources([asg, lc])
         return asg
+
+    def _create_bastion_userdata(self):
+        startup = [
+            '#!/bin/bash',
+            'yum update -y && yum install -y yum-cron && chkconfig yum-cron on'
+        ]
+        return tp.Base64(tp.Join('\n', startup))
 
     def create_nat_sg(self):
         sg = tp.ec2.SecurityGroup('NATSecurityGroup',

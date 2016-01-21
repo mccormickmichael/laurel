@@ -95,7 +95,7 @@ class NxNVPC(vpc.TemplateBuilderBase):
 
     def create_public_nacl_rules(self, pub_nacl):
         builder = vpc.NaclBuilder(pub_nacl)
-        builder.ingress().allow().http().https().ssh().ephemeral()
+        builder.ingress().allow().http().https().ssh().nat_ephemeral()
         builder.egress().allow().any()
         self.add_resources(builder.resources())
 
@@ -149,7 +149,7 @@ class NxNVPC(vpc.TemplateBuilderBase):
 
     def create_private_nacl_rules(self, nacl):
         builder = vpc.NaclBuilder(nacl)
-        builder.ingress().allow(self.vpc_cidr).http().https().ssh().ephemeral()
+        builder.ingress().allow(self.vpc_cidr).http().https().ssh().nat_ephemeral()
         builder.egress().allow().any()
         self.add_resources(builder.resources())
 

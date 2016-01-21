@@ -40,6 +40,9 @@ class ProtocolBuilder(object):
     
     def ssh(self, cidr = None):
         return self.tcp('SSH', 22, 22, cidr)
+
+    def nat_ephemeral(self, cidr = None):
+        return self.tcp('EphemeralReturn', 1024, 65535, cidr)
     
     def ephemeral(self, cidr = None):
         return self.tcp('EphemeralReturn', 32767, 65535, cidr)
