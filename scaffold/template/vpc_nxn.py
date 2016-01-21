@@ -7,8 +7,11 @@
 # - ???
 #
 # Stack Outputs:
+# - VpcId - ID of the VPC
+# - VpcCidr - CIDR block of the VPC
 # - PublicSubnet-(N) - ID of the public subnet in availability zone (N)
 # - PrivateSubnet-(N) - ID of the private subnet in availability zone (N)
+# - PrivateRouteTable - ID of the private route table
 #
 # Template Parameters (provided at template creation time):
 # - vpc_cidr
@@ -46,19 +49,17 @@ class NxNVPC(vpc.TemplateBuilderBase):
         self.pub_size = pub_size
         self.priv_size = priv_size
 
-        self.default_tags = tp.Tags()
-
         self.create_vpc()
         self.create_public_routes()
         self.create_public_nacl()
+
+        self.create_private_route_table()
 
         self.pub_subnets = {}
         self.priv_subnets = {}
         self.create_private_nacl()
         for az in self.azs:
             self.create_subnets_in_az(az)
-
-        # self.create_outputs()
 
     def create_vpc(self):
         self.vpc = tp.ec2.VPC('{}VPC'.format(self.name),
@@ -70,6 +71,8 @@ class NxNVPC(vpc.TemplateBuilderBase):
                                                       InternetGatewayId = tp.Ref(self.igw),
                                                       VpcId = tp.Ref(self.vpc))
         self.add_resources([self.vpc, self.igw, self.igw_attach])
+        self.add_output(tp.Output('VpcId', Value = tp.Ref(self.vpc)))
+        self.add_output(tp.Output('VpcCidr', Value = self.vpc_cidr))
 
     def create_public_routes(self):
         self.public_route_table = tp.ec2.RouteTable('{}PublicRT'.format(self.name),
@@ -100,14 +103,7 @@ class NxNVPC(vpc.TemplateBuilderBase):
         az = vpc.az_name(self.region, az)
         pub_subnet = self.create_public_subnet(az)
 
-        priv_rt = self.create_private_route_table(az)
-        priv_subnet = self.create_private_subnet(az, priv_rt)
-        nat_sg = self.create_nat_sg(pub_subnet)
-        nat_eni = self.create_nat_eni(pub_subnet, nat_sg)
-        self.route_private_subnet(priv_subnet, priv_rt, nat_eni)
-        
-        # Private Route -> ENI
-        # NAT (optional)
+        priv_subnet = self.create_private_subnet(az, self.private_rt)
 
     def _create_subnet(self, prefix, az, size, nacl, rt):
         subnet = tp.ec2.Subnet('{}{}Subnet{}'.format(self.name, prefix, az[-1].upper()),
@@ -137,12 +133,12 @@ class NxNVPC(vpc.TemplateBuilderBase):
         self.pub_subnets[priv_subnet.name] = priv_subnet
         return priv_subnet
 
-    def create_private_route_table(self, az):
-        rt = tp.ec2.RouteTable('{}PrivateRT{}'.format(self.name, az[-1].upper()),
-                               VpcId = tp.Ref(self.vpc),
-                               Tags = self.default_tags)
-        self.add_resource(rt)
-        return rt
+    def create_private_route_table(self):
+        self.private_rt = tp.ec2.RouteTable('{}PrivateRT'.format(self.name),
+                                           VpcId = tp.Ref(self.vpc),
+                                           Tags = self.default_tags)
+        self.add_resource(self.private_rt)
+        self.add_output(tp.Output('PrivateRT', Value = tp.Ref(self.private_rt)))
 
     def create_private_nacl(self):
         self.priv_nacl = tp.ec2.NetworkAcl('{}PrivateNacl'.format(self.name),
@@ -157,34 +153,6 @@ class NxNVPC(vpc.TemplateBuilderBase):
         builder.egress().allow().any()
         self.add_resources(builder.resources())
 
-    def create_nat_sg(self, subnet):
-        # TODO: This SG could be shared across pub subnets if the ingress cidr block is the VPC.
-        #       Is there a reason that could be bad?
-        sg = tp.ec2.SecurityGroup('{}NatSg'.format(subnet.name),
-                                  GroupDescription = 'NAT Instance Security Group for {}'.format(subnet.name),
-                                  SecurityGroupIngress = vpc.SecurityGroupRuleBuilder(subnet.CidrBlock).any().rules(),
-                                  VpcId = tp.Ref(self.vpc),
-                                  Tags = self.default_tags)
-        self.add_resource(sg)
-        return sg
-
-    def create_nat_eni(self, subnet, sg):
-        eni = tp.ec2.NetworkInterface('{}NatEni'.format(subnet.name),
-                                      GroupSet = [tp.Ref(sg)],
-                                      SubnetId = tp.Ref(subnet),
-                                      SourceDestCheck = False,
-                                      Tags = self.default_tags)
-        self.add_resource(eni)
-        self.add_output(tp.Output(eni.name, Value = tp.Ref(eni)))
-        return eni
-
-    def route_private_subnet(self, subnet, rt, eni):
-        route = tp.ec2.Route('{}PrivateRoute'.format(subnet.name),
-                             RouteTableId = tp.Ref(rt),
-                             NetworkInterfaceId = tp.Ref(eni),
-                             DestinationCidrBlock = vpc.CIDR_ANY)
-        self.add_resource(route)
-    
 if __name__ == '__main__':
     name = sys.argv[1] if len(sys.argv) > 1 else 'Simple'
     print NxNVPC(name).to_json()
