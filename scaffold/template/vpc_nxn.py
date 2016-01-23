@@ -31,9 +31,9 @@
 import sys
 import troposphere as tp
 from . import cidr, vpc
-from . import retag
+from . import retag, TemplateBuilderBase
 
-class NxNVPC(vpc.TemplateBuilderBase):
+class NxNVPC(TemplateBuilderBase):
 
     def __init__(self, name, description = '[REPLACEME]',
                  vpc_cidr = '172.16.0.0/16',

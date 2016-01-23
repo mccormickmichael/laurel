@@ -10,10 +10,10 @@ import troposphere.ec2 as ec2
 import troposphere.iam as iam
 import troposphere.autoscaling as asg
 import troposphere as tp
-from . import vpc # TODO TemplateBuilderBase should be in __init__
-from . import asgtag
+from . import vpc
+from . import asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION
 
-class ServicesTemplate(vpc.TemplateBuilderBase):
+class ServicesTemplate(TemplateBuilderBase):
 
     BASTION_KEY_PARM_NAME = 'BastionKey'
 
@@ -55,7 +55,7 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
     def create_nat_asg(self, sg):
         profile = self.create_nat_iam_profile()
         lc = asg.LaunchConfiguration('NATLC',
-                                     ImageId = tp.FindInMap(vpc.AMI_REGION_MAP_NAME, vpc.REF_REGION, 'NAT'),
+                                     ImageId = tp.FindInMap(AMI_REGION_MAP_NAME, REF_REGION, 'NAT'),
                                      InstanceType = self.nat_instance_type,
                                      SecurityGroups = [tp.Ref(sg)],
                                      KeyName = tp.Ref(self.BASTION_KEY_PARM_NAME),
@@ -112,7 +112,7 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
 
     def create_bastion_asg(self, sg):
         lc = asg.LaunchConfiguration('BastionLC',
-                                     ImageId = tp.FindInMap(vpc.AMI_REGION_MAP_NAME, vpc.REF_REGION, 'BASTION'),
+                                     ImageId = tp.FindInMap(AMI_REGION_MAP_NAME, REF_REGION, 'BASTION'),
                                      InstanceType = self.bastion_instance_type,
                                      SecurityGroups = [tp.Ref(sg)],
                                      KeyName = tp.Ref(self.BASTION_KEY_PARM_NAME),
