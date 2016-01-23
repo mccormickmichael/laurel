@@ -1,9 +1,32 @@
 #!/usr/bin/python
 
 # Define a NAT ASG and a Bastion ASG. Depends on a network stack to be defined.
-# TODO: template parameters
-# TODO: stack parameters
-# TODO: stack outputs
+#
+# Template Parameters (provided at template creation time):
+# - vpc_id
+#   the ID of the VPC in which to build the ASGs
+# - vpc_cidr
+#   CIDR block of the VPC (isn't there a way to discover this?)
+# - private_route_table_id
+#   ID of the VPC's route table for private subnets. This template assumes there
+#   is only one, shared by all subnets
+# - public_subnet_ids
+#   IDs of public subnets into which the Bastion and NAT instances can be launched
+# - description
+#   Description for this stack
+# - region
+#   Region in which to build the stack. Defaults to 'us-west-2'
+# - nat_instance_type
+#   Instance type to use for NAT instances. Defaults to 't2.micro'
+# - bastion_instance_type
+#   Instance type to use for Bastion instances. Defaults to 't2.micro'
+#
+# Stack Parameters (provided to the template at stack create/update time):
+# - BastionKey
+#   Name of the key pair to use to connect to bastion instances
+#
+# Stack Outputs:
+# TODO: add stack outputs as needed
 
 import sys
 import troposphere.ec2 as ec2
