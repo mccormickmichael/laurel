@@ -10,7 +10,7 @@ import troposphere.ec2 as ec2
 import troposphere.iam as iam
 import troposphere.autoscaling as asg
 import troposphere as tp
-from . import vpc
+from . import net
 from . import asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION
 
 class ServicesTemplate(TemplateBuilderBase):
@@ -135,7 +135,7 @@ class ServicesTemplate(TemplateBuilderBase):
         return tp.Base64(tp.Join('\n', startup))
 
     def create_nat_sg(self):
-        rules = [vpc.sg_rule(self.vpc_cidr, vpc.ANY_PORT, vpc.ANY_PROTOCOL)]
+        rules = [net.sg_rule(self.vpc_cidr, net.ANY_PORT, net.ANY_PROTOCOL)]
         sg = ec2.SecurityGroup('NATSecurityGroup',
                                GroupDescription = 'NAT Instance Security Group',
                                SecurityGroupIngress = rules,
@@ -145,7 +145,7 @@ class ServicesTemplate(TemplateBuilderBase):
         return sg
 
     def create_bastion_sg(self):
-        rules = [vpc.sg_rule(vpc.CIDR_ANY, vpc.SSH, vpc.TCP)]
+        rules = [net.sg_rule(net.CIDR_ANY, net.SSH, net.TCP)]
         sg = ec2.SecurityGroup('BastionSecurityGroup',
                                GroupDescription = 'Bastion Instance Security Group',
                                SecurityGroupIngress = rules,

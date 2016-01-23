@@ -30,7 +30,7 @@
 
 import sys
 import troposphere as tp
-from . import cidr, vpc
+from . import cidr, net
 from . import retag, TemplateBuilderBase
 
 class NxNVPC(TemplateBuilderBase):
@@ -83,7 +83,7 @@ class NxNVPC(TemplateBuilderBase):
                              RouteTableId = tp.Ref(self.public_route_table),
                              DependsOn = self.igw.name,
                              GatewayId = tp.Ref(self.igw),
-                             DestinationCidrBlock = vpc.CIDR_ANY)
+                             DestinationCidrBlock = net.CIDR_ANY)
         
         self.add_resources(self.public_route_table, route)
 
@@ -97,16 +97,16 @@ class NxNVPC(TemplateBuilderBase):
     def create_public_nacl_rules(self, nacl):
         pre = self.name + 'PublicNacl'
         self.add_resource([
-            vpc.nacl_ingress(pre + 'HttpIn',      nacl, 100, vpc.HTTP,  vpc.TCP),
-            vpc.nacl_ingress(pre + 'HttpsIn',     nacl, 101, vpc.HTTPS, vpc.TCP),
-            vpc.nacl_ingress(pre + 'SSHIn',       nacl, 102, vpc.SSH,   vpc.TCP),
-            vpc.nacl_ingress(pre + 'EphemeralIn', nacl, 200, vpc.NAT,   vpc.TCP)
+            net.nacl_ingress(pre + 'HttpIn',      nacl, 100, net.HTTP,  net.TCP),
+            net.nacl_ingress(pre + 'HttpsIn',     nacl, 101, net.HTTPS, net.TCP),
+            net.nacl_ingress(pre + 'SSHIn',       nacl, 102, net.SSH,   net.TCP),
+            net.nacl_ingress(pre + 'EphemeralIn', nacl, 200, net.NAT,   net.TCP)
         ] + [
-            vpc.nacl_egress(pre + 'AnyOut', nacl, 100, vpc.ANY_PORT, vpc.ANY_PROTOCOL)
+            net.nacl_egress(pre + 'AnyOut', nacl, 100, net.ANY_PORT, net.ANY_PROTOCOL)
         ])
 
     def create_subnets_in_az(self, az):
-        az = vpc.az_name(self.region, az)
+        az = net.az_name(self.region, az)
         pub_subnet = self.create_public_subnet(az)
 
         priv_subnet = self.create_private_subnet(az, self.private_rt)
@@ -157,12 +157,12 @@ class NxNVPC(TemplateBuilderBase):
     def create_private_nacl_rules(self, nacl):
         pre = self.name + 'PrivateNacl'
         self.add_resource([
-            vpc.nacl_ingress(pre + 'HttpIn',      nacl, 100, vpc.HTTP,  vpc.TCP, self.vpc_cidr),
-            vpc.nacl_ingress(pre + 'HttpsIn',     nacl, 101, vpc.HTTPS, vpc.TCP, self.vpc_cidr),
-            vpc.nacl_ingress(pre + 'SSHIn',       nacl, 102, vpc.SSH,   vpc.TCP, self.vpc_cidr),
-            vpc.nacl_ingress(pre + 'EphemeralIn', nacl, 200, vpc.NAT,   vpc.TCP)
+            net.nacl_ingress(pre + 'HttpIn',      nacl, 100, net.HTTP,  net.TCP, self.vpc_cidr),
+            net.nacl_ingress(pre + 'HttpsIn',     nacl, 101, net.HTTPS, net.TCP, self.vpc_cidr),
+            net.nacl_ingress(pre + 'SSHIn',       nacl, 102, net.SSH,   net.TCP, self.vpc_cidr),
+            net.nacl_ingress(pre + 'EphemeralIn', nacl, 200, net.NAT,   net.TCP)
         ] + [
-            vpc.nacl_egress(pre + 'AnyOut', nacl, 100, vpc.ANY_PORT, vpc.ANY_PROTOCOL)
+            net.nacl_egress(pre + 'AnyOut', nacl, 100, net.ANY_PORT, net.ANY_PROTOCOL)
         ])
 
 if __name__ == '__main__':
