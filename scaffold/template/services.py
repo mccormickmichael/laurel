@@ -88,7 +88,7 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
                                        'Statement' : [ {
                                            'Effect' : 'Allow',
                                            'Resource' : ['*'],
-                                           'Action' : ['ec2:CreateRoute', 'ec2:DeleteRoute']
+                                           'Action' : ['ec2:CreateRoute', 'ec2:DeleteRoute', 'ec2:ModifyInstanceAttribute']
                                        } ]
                                    }
                                )
@@ -104,6 +104,7 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
             "#!/bin/bash",
             "yum update -y && yum install -y yum-cron && chkconfig yum-cron on",
             "INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id`",
+            "aws ec2 modify-instance-attribute --instance-id $INS_ID --no-source-dest-check --region {}".format(self.region),
             "aws ec2 delete-route --destination-cidr-block 0.0.0.0/0 --route-table-id {} --region {}".format(self.route_table_id, self.region),
             "aws ec2 create-route --route-table-id {} --destination-cidr-block 0.0.0.0/0 --instance-id $INS_ID --region {}".format(self.route_table_id, self.region)
         ]

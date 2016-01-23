@@ -90,7 +90,7 @@ class NxNVPC(vpc.TemplateBuilderBase):
     def create_public_nacl(self):
         self.public_nacl = tp.ec2.NetworkAcl('{}PublicNacl'.format(self.name),
                                              VpcId = tp.Ref(self.vpc),
-                                             Tags = self.default_tags)
+                                             Tags = self._rename('{} Public'))
         self.add_resource(self.public_nacl)
         self.create_public_nacl_rules(self.public_nacl)
 
@@ -145,13 +145,13 @@ class NxNVPC(vpc.TemplateBuilderBase):
     def create_private_nacl(self):
         self.priv_nacl = tp.ec2.NetworkAcl('{}PrivateNacl'.format(self.name),
                                       VpcId = tp.Ref(self.vpc),
-                                      Tags = self.default_tags)
+                                      Tags = self._rename('{} Private'))
         self.add_resource(self.priv_nacl)
         self.create_private_nacl_rules(self.priv_nacl)
 
     def create_private_nacl_rules(self, nacl):
         builder = vpc.NaclBuilder(nacl)
-        builder.ingress().allow(self.vpc_cidr).http().https().ssh().nat_ephemeral()
+        builder.ingress().allow(self.vpc_cidr).http().https().ssh().nat_ephemeral(vpc.CIDR_ANY)
         builder.egress().allow().any()
         self.add_resource(builder.resources())
 
