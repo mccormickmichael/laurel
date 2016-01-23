@@ -94,11 +94,16 @@ class NxNVPC(vpc.TemplateBuilderBase):
         self.add_resource(self.public_nacl)
         self.create_public_nacl_rules(self.public_nacl)
 
-    def create_public_nacl_rules(self, pub_nacl):
-        builder = vpc.NaclBuilder(pub_nacl)
-        builder.ingress().allow().http().https().ssh().nat_ephemeral()
-        builder.egress().allow().any()
-        self.add_resource(builder.resources())
+    def create_public_nacl_rules(self, nacl):
+        pre = self.name + 'PublicNacl'
+        self.add_resource([
+            vpc.nacl_ingress(pre + 'HttpIn',      nacl, 100, vpc.HTTP,  vpc.TCP),
+            vpc.nacl_ingress(pre + 'HttpsIn',     nacl, 101, vpc.HTTPS, vpc.TCP),
+            vpc.nacl_ingress(pre + 'SSHIn',       nacl, 102, vpc.SSH,   vpc.TCP),
+            vpc.nacl_ingress(pre + 'EphemeralIn', nacl, 200, vpc.NAT,   vpc.TCP)
+        ] + [
+            vpc.nacl_egress(pre + 'AnyOut', nacl, 100, vpc.ANY_PORT, vpc.ANY_PROTOCOL)
+        ])
 
     def create_subnets_in_az(self, az):
         az = vpc.az_name(self.region, az)
@@ -150,10 +155,15 @@ class NxNVPC(vpc.TemplateBuilderBase):
         self.create_private_nacl_rules(self.priv_nacl)
 
     def create_private_nacl_rules(self, nacl):
-        builder = vpc.NaclBuilder(nacl)
-        builder.ingress().allow(self.vpc_cidr).http().https().ssh().nat_ephemeral(vpc.CIDR_ANY)
-        builder.egress().allow().any()
-        self.add_resource(builder.resources())
+        pre = self.name + 'PrivateNacl'
+        self.add_resource([
+            vpc.nacl_ingress(pre + 'HttpIn',      nacl, 100, vpc.HTTP,  vpc.TCP, self.vpc_cidr),
+            vpc.nacl_ingress(pre + 'HttpsIn',     nacl, 101, vpc.HTTPS, vpc.TCP, self.vpc_cidr),
+            vpc.nacl_ingress(pre + 'SSHIn',       nacl, 102, vpc.SSH,   vpc.TCP, self.vpc_cidr),
+            vpc.nacl_ingress(pre + 'EphemeralIn', nacl, 200, vpc.NAT,   vpc.TCP)
+        ] + [
+            vpc.nacl_egress(pre + 'AnyOut', nacl, 100, vpc.ANY_PORT, vpc.ANY_PROTOCOL)
+        ])
 
 if __name__ == '__main__':
     name = sys.argv[1] if len(sys.argv) > 1 else 'Simple'

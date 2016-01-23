@@ -28,137 +28,42 @@ AMI_REGION_MAP = {
     #'ap-northeast-2'
 }
 
-class ProtocolBuilder(object):
-    def __init__(self, parent, cidr = None):
-        self.parent = parent
-        self.cidr = cidr
+HTTP = 80
+HTTPS = 443
+SSH = 22
+EPHEMERAL = (32767, 65536)
+NAT = (1024, 65535)
+ANY_PORT = (0, 65535)
 
-    def http(self, cidr = None):
-        return self.tcp('Http', 80, 80, cidr)
-    
-    def https(self, cidr = None):
-        return self.tcp('Https', 443, 443, cidr)
-    
-    def ssh(self, cidr = None):
-        return self.tcp('SSH', 22, 22, cidr)
+TCP = '6'
+UDP = '17'
+ICMP = '1'
+ANY_PROTOCOL = '-1'
 
-    def nat_ephemeral(self, cidr = None):
-        return self.tcp('EphemeralReturn', 1024, 65535, cidr)
-    
-    def ephemeral(self, cidr = None):
-        return self.tcp('EphemeralReturn', 32767, 65535, cidr)
+def sg_rule(cidr, ports, protocol):
+    from_port, to_port = _asduo(ports)
+    return ec2.SecurityGroupRule(CidrIp = cidr,
+                                 FromPort = from_port,
+                                 ToPort = to_port,
+                                 IpProtocol = protocol)
 
-    def any(self, cidr = None):
-        cidr = cidr or self.cidr
-        self.parent._addrule('Any', self.action(), '-1', 0, 65535, cidr)
-        return self
+def nacl_ingress(name, nacl, number, ports, protocol, cidr = CIDR_ANY, action = 'allow'):
+    return _nacl_rule(name, nacl, number, ports, protocol, False, cidr, action)
 
-    def tcp(self, name, port_from, port_to, cidr = None):
-        cidr = cidr or self.cidr
-        self.parent._addrule(name, self.action(), '6', port_from, port_to, cidr)
-        return self
+def nacl_egress(name, nacl, number, ports, protocol, cidr = CIDR_ANY, action = 'allow'):
+    return _nacl_rule(name, nacl, number, ports, protocol, True, cidr, action)
 
-class AllowProtocolBuilder(ProtocolBuilder):
-    def __init__(self, parent, cidr = None):
-        super(AllowProtocolBuilder, self).__init__(parent, cidr)
-
-    def action(self):
-        return 'allow'
-
-class DenyProtocolBuilder(ProtocolBuilder):
-    def __init__(self, parent, cidr = None):
-        super(DenyProtocolBuilder, self).__init__(parent, cidr)
-
-    def action(self):
-        return 'deny'
-        
-class NaclEntryBuilder(object):
-    def __init__(self, parent):
-        self.parent = parent
-        self.rule = 100
-        
-    def deny(self, cidr = None):
-        return DenyProtocolBuilder(self, cidr)
-        
-    def allow(self, cidr = None):
-        return AllowProtocolBuilder(self, cidr)
-
-    def _addrule(self, name, action, protocol, port_from, port_to, cidr = None):
-        self.parent._addrule(self._rulename(name), self._nextrulenum(), protocol,
-                             port_from, port_to, self._egress(), action, cidr)
-
-    def _nextrulenum(self):
-        rule = self.rule
-        self.rule += 1
-        return rule
-
-class NaclIngressBuilder(NaclEntryBuilder):
-    def __init__(self, parent):
-        super(NaclIngressBuilder, self).__init__(parent)
-        
-    def _rulename(self, prefix):
-        return '{0}In'.format(prefix)
-
-    def _egress(self):
-        return 'false'
-
-class NaclEgressBuilder(NaclEntryBuilder):
-    def __init__(self, parent):
-        super(NaclEgressBuilder, self).__init__(parent)
-
-    def _rulename(self, prefix):
-        return '{0}Out'.format(prefix)
-
-    def _egress(self):
-        return 'true'
-
-class NaclBuilder(object):
-    def __init__(self, nacl, cidr = CIDR_ANY):
-        self.nacl = nacl
-        self.cidr = cidr
-        self.ib = NaclIngressBuilder(self)
-        self.eb = NaclEgressBuilder(self)
-        self.entries = []
-
-    def ingress(self):
-        return self.ib
-    
-    def egress(self):
-        return self.eb
-    
-    def resources(self):
-        return self.entries
-    
-    def _addrule(self, name, number, protocol, from_port, to_port, egress, action, cidr = None):
-        cidr = cidr or self.cidr
-        rule = ec2.NetworkAclEntry('{0}{1}'.format(self.nacl.name, name),
-                                   NetworkAclId = tp.Ref(self.nacl),
-                                   RuleNumber = str(number),
-                                   Protocol = protocol,
-                                   PortRange = ec2.PortRange(From = from_port, To = to_port),
-                                   Egress = egress,
-                                   RuleAction = action,
-                                   CidrBlock = cidr)
-        self.entries.append(rule)
-        
-class SecurityGroupRuleBuilder(ProtocolBuilder):
-    def __init__(self, cidr = CIDR_NONE):
-        super(SecurityGroupRuleBuilder, self).__init__(self, cidr)
-        self._rules = []
-
-    def rules(self):
-        return self._rules
-
-    def action(self):
-        return ''
-    
-    def _addrule(self, name_ignored, action_ignored, protocol, port_from, port_to, cidr):
-        self._rules.append(ec2.SecurityGroupRule(
-            CidrIp = cidr,
-            FromPort = port_from,
-            ToPort = port_to,
-            IpProtocol = protocol))
-
+def _nacl_rule(name, nacl, number, ports, protocol, egress, cidr, action):
+    from_port, to_port = _asduo(ports)
+    return ec2.NetworkAclEntry(name,
+                               NetworkAclId = _asref(nacl),
+                               RuleNumber = number,
+                               Protocol = protocol,
+                               PortRange = ec2.PortRange(From = from_port, To = to_port),
+                               Egress = egress,
+                               RuleAction = action,
+                               CidrBlock = cidr)
+                               
 class TemplateBuilderBase(object):
     def __init__(self, name, description):
         self.name = name
@@ -189,6 +94,9 @@ class TemplateBuilderBase(object):
     def _rename(self, fmt):
         return retag(self.default_tags, Name = fmt.format(self.name))
         
+def _asduo(d):
+    return d if type(d) in [list, tuple] else (d, d)
+
 def _asref(o):
     return o if isinstance(o, tp.Ref) else tp.Ref(o)
 

@@ -135,18 +135,20 @@ class ServicesTemplate(vpc.TemplateBuilderBase):
         return tp.Base64(tp.Join('\n', startup))
 
     def create_nat_sg(self):
+        rules = [vpc.sg_rule(self.vpc_cidr, vpc.ANY_PORT, vpc.ANY_PROTOCOL)]
         sg = ec2.SecurityGroup('NATSecurityGroup',
                                GroupDescription = 'NAT Instance Security Group',
-                               SecurityGroupIngress = vpc.SecurityGroupRuleBuilder(self.vpc_cidr).any().rules(),
+                               SecurityGroupIngress = rules,
                                VpcId = self.vpc_id,
                                Tags = self.default_tags)
         self.add_resource(sg)
         return sg
 
     def create_bastion_sg(self):
+        rules = [vpc.sg_rule(vpc.CIDR_ANY, vpc.SSH, vpc.TCP)]
         sg = ec2.SecurityGroup('BastionSecurityGroup',
                                GroupDescription = 'Bastion Instance Security Group',
-                               SecurityGroupIngress = vpc.SecurityGroupRuleBuilder(vpc.CIDR_ANY).ssh().rules(),
+                               SecurityGroupIngress = rules,
                                VpcId = self.vpc_id,
                                Tags = self.default_tags)
         self.add_resource(sg)
