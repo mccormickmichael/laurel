@@ -26,7 +26,10 @@
 #   Name of the key pair to use to connect to bastion instances
 #
 # Stack Outputs:
-# TODO: add stack outputs as needed
+# - BastionASG
+#   ID of the Bastion autoscaling group
+# - NATASG
+#   ID of the NAT autoscaling group
 
 import sys
 import troposphere.ec2 as ec2
@@ -91,8 +94,9 @@ class ServicesTemplate(TemplateBuilderBase):
                                      LaunchConfigurationName = tp.Ref(lc),
                                      VPCZoneIdentifier = self.subnet_ids,
                                      Tags = asgtag(self._rename('{} NAT')))
-        # TODO: Copy ALL default tags to AutoScalingTags
+
         self.add_resources(group, lc)
+        self.add_output(tp.Output('NATASG', Value = tp.Ref(group)))
         return group
 
     def create_nat_iam_profile(self):
@@ -148,6 +152,7 @@ class ServicesTemplate(TemplateBuilderBase):
                                      VPCZoneIdentifier = self.subnet_ids,
                                      Tags = asgtag(self._rename('{} Bastion')))
         self.add_resources(group, lc)
+        self.add_output(tp.Output('BastionASG', Value = tp.Ref(group)))
         return group
 
     def _create_bastion_userdata(self):
