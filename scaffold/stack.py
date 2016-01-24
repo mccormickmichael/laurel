@@ -4,7 +4,7 @@ import sys
 import time
 import boto3
 
-
+DEFAULT_REGION = 'us-west-2'
 BUCKET_NAME = 'thousandleaves-us-west-2-laurel-deploy'
 KEY_PREFIX = 'scaffold/templates'
 
@@ -48,24 +48,25 @@ def _to_s3_url(bucket, key):
     return 'http://s3.amazonaws.com/{}/{}'.format(bucket, key)
 
 class StackOperation(object):
-    def __init__(self, stack_name, template_body, bucket_name):
+    def __init__(self, stack_name, template_body, bucket_name, region):
         self.stack_name = stack_name
         self.template_body = template_body
         self.bucket_name = bucket_name
+        self.region = region
 
     def _upload_template(self):
         key_name = '{}/{}'.format(KEY_PREFIX, self.stack_name)
-        bucket = boto3.resource('s3').Bucket(self.bucket_name)
+        bucket = boto3.resource('s3', region_name = self.region).Bucket(self.bucket_name)
         bucket.put_object(Key = key_name,
                           Body = self.template_body)
         return _to_s3_url(self.bucket_name, key_name)
         
 class Creator(StackOperation):
-    def __init__(self, stack_name, template_body, bucket_name = BUCKET_NAME):
-        super(Creator, self).__init__(stack_name, template_body, bucket_name)
+    def __init__(self, stack_name, template_body, bucket_name = BUCKET_NAME, region = DEFAULT_REGION):
+        super(Creator, self).__init__(stack_name, template_body, bucket_name, region)
 
     def create(self, stack_params, cb = printing_cb):
-        cf = boto3.resource('cloudformation')
+        cf = boto3.resource('cloudformation', region_name = self.region)
         
         stack = cf.create_stack(
             StackName = self.stack_name,
@@ -79,12 +80,12 @@ class Creator(StackOperation):
 
 
 class Updater(StackOperation):
-    def __init__(self, stack_name, template_body = None, bucket_name = BUCKET_NAME):
-        super(Updater, self).__init__(stack_name, template_body, bucket_name)
+    def __init__(self, stack_name, template_body = None, bucket_name = BUCKET_NAME, region = DEFAULT_REGION):
+        super(Updater, self).__init__(stack_name, template_body, bucket_name, region)
 
         
     def update(self, stack_params, cb = printing_cb):
-        cf = boto3.resource('cloudformation')
+        cf = boto3.resource('cloudformation', region_name = self.region)
         stack = cf.Stack(self.stack_name)
         parameters = _merge_stack_params(stack, stack_params)
         if self.template_body is None:

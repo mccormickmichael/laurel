@@ -9,7 +9,7 @@
 #   CIDR block of the VPC (isn't there a way to discover this?)
 # - private_route_table_id
 #   ID of the VPC's route table for private subnets. This template assumes there
-#   is only one, shared by all subnets
+#   is only one, shared by all private subnets
 # - public_subnet_ids
 #   IDs of public subnets into which the Bastion and NAT instances can be launched
 # - description
