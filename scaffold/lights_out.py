@@ -2,18 +2,17 @@
 
 import argparse
 import boto3
-
-def outputs_ending(outputs, key):
-    return [o['OutputValue'] for o in outputs if o['OutputKey'].endswith(key)]
+import stacks.outputs as so
 
 def lights_out(args):
-    if args.dry_run:
-        echo_args(args)
-        return []
 
     cf = boto3.resource('cloudformation', region_name = args.region)
     outputs = cf.Stack(args.stack_name).outputs
-    asgs = outputs_ending(outputs, 'ASG')
+    asgs = so.values(outputs, lambda k: k.endswith('ASG'))
+
+    if args.dry_run:
+        print 'Pretending to scale asgs to zero becaute dry-run flag is set'
+        return asgs
 
     autoscale = boto3.client('autoscaling', region_name = args.region)
     for asg in asgs:

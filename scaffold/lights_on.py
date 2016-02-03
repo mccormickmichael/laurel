@@ -3,15 +3,9 @@
 import argparse
 import boto3
 import json
-import inspect
+import stacks.outputs as so
 
-def output_dict_ending(outputs, key):
-    return {o['OutputKey'] : o['OutputValue'] for o in outputs if o['OutputKey'].endswith(key)}
-
-def lights_out(args):
-    if args.dry_run:
-        echo_args(args)
-        return {}
+def lights_on(args):
 
     cf = boto3.resource('cloudformation', region_name = args.region)
 
@@ -19,7 +13,11 @@ def lights_out(args):
     resources = cf_c.get_template(StackName = args.stack_name)['TemplateBody']['Resources']
     asg_mins = {k : v['Properties']['MinSize'] for k, v in resources.items() if k.endswith('ASG')}
 
-    asg_ids = output_dict_ending(cf.Stack(args.stack_name).outputs, 'ASG')
+    asg_ids = so.dict(cf.Stack(args.stack_name).outputs, lambda k: k.endswith('ASG'))
+
+    if args.dry_run:
+        print 'Pretending to reset asg min values because dry run flag is set'
+        return asg_mins
     
     autoscale = boto3.client('autoscaling', region_name = args.region)
     for logical, physical in asg_ids.iteritems():
@@ -44,7 +42,7 @@ def get_args():
 
 if __name__ == '__main__':
     args = get_args()
-    results = lights_out(args)
+    results = lights_on(args)
     for asg_name, min_size in results.iteritems():
         print 'ASG scaled to min {}: {}'.format(asg_name, min_size)
 
