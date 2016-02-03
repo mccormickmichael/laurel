@@ -26,18 +26,30 @@ class TestOutputMappings(unittest.TestCase):
         results = outputs.dict(self.stack_outputs)
         self.assertEqual(4, len(results.keys()))
 
-    def test_key_mapping(self):
+    def test_keys_mapping(self):
         results = outputs.keys(self.stack_outputs, lambda k: k.startswith('Starts'))
         self.assertEqual(['StartsWithOne', 'StartsWithTwo'], results)
 
-    def test_key_mapping_default(self):
+    def test_keys_mapping_default(self):
         results = outputs.keys(self.stack_outputs)
         self.assertEqual(4, len(results))
 
-    def test_value_mapping(self):
+    def test_values_mapping(self):
         results = outputs.values(self.stack_outputs, lambda v: v.endswith('Ends'))
         self.assertEqual(['OneWithEndsValue', 'TwoWithEndsValue'], results)
 
-    def test_value_mapping_default(self):
+    def test_values_mapping_default(self):
         results = outputs.values(self.stack_outputs)
         self.assertEqual(4, len(results))
+
+    def test_value(self):
+        result = outputs.value(self.stack_outputs, 'TwoWithEnds')
+        self.assertEquals('TwoWithEndsValue', result)
+
+    def test_value_lambda(self):
+        result = outputs.value(self.stack_outputs, lambda k: k.startswith('Starts'))
+        self.assertIsNotNone(result)
+        self.assertTrue(result.startswith('Starts') and result.endswith('Value'))
+
+    def test_value_none(self):
+        self.assertIsNone(outputs.value(self.stack_outputs, 'Biggles'))

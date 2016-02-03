@@ -2,6 +2,7 @@
 
 import argparse
 from template.services import ServicesTemplate
+import stacks.outputs as so
 import boto3
 import stack
 
@@ -19,10 +20,10 @@ def create_stack(args):
     cf = boto3.resource('cloudformation', region_name = args.region)
     outputs = cf.Stack(args.network_stack_name).outputs
 
-    vpc_id = output_matching(outputs, 'VpcId')
-    vpc_cidr = output_matching(outputs, 'VpcCidr')
-    priv_rt_id = output_matching(outputs, 'PrivateRT')
-    pub_subnet_ids = outputs_containing(outputs, 'PublicSubnet')
+    vpc_id = so.value(outputs, 'VpcId')
+    vpc_cidr = so.value(outputs, 'VpcCidr')
+    priv_rt_id = so.value(outputs, 'PrivateRT')
+    pub_subnet_ids = so.values(outputs, lambda k: 'PublicSubnet' in k)
 
     template = ServicesTemplate(args.stack_name,
                                 description = args.desc,
