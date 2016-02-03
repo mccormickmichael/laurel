@@ -57,9 +57,9 @@ REF_REGION = tp.Ref('AWS::Region')
 
 AMI_REGION_MAP_NAME = 'AMIRegionMap'
 AMI_REGION_MAP = {
-    'us-east-1' : { 'NAT' : 'ami-303b1458', 'BASTION': 'ami-60b6c60a' },
-    'us-west-1' : { 'NAT' : 'ami-7da94839', 'BASTION': 'ami-d5ea86b5' },
-    'us-west-2' : { 'NAT' : 'ami-69ae8259', 'BASTION': 'ami-f0091d91' }
+    'us-east-1' : { 'NAT' : 'ami-303b1458', 'BASTION': 'ami-60b6c60a', 'GENERAL': 'ami-60b6c60a' },
+    'us-west-1' : { 'NAT' : 'ami-7da94839', 'BASTION': 'ami-d5ea86b5', 'GENERAL': 'ami-d5ea86b5' },
+    'us-west-2' : { 'NAT' : 'ami-69ae8259', 'BASTION': 'ami-f0091d91', 'GENERAL': 'ami-f0091d91' }
     #'eu-west-1'
     #'eu-central-1'
     #'sa-east-1'

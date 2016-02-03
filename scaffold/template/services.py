@@ -101,25 +101,25 @@ class ServicesTemplate(TemplateBuilderBase):
 
     def create_nat_iam_profile(self):
         role = iam.Role('NATInstanceRole',
-                           AssumeRolePolicyDocument = {
-                               'Statement' : [ {
-                                   'Effect' : 'Allow',
-                                   'Principal' : { 'Service' : ['ec2.amazonaws.com'] },
-                                   'Action' : ['sts:AssumeRole']
-                               } ]
-                           },
-                           Policies = [
-                               iam.Policy(
-                                   PolicyName = 'NATInstance',
-                                   PolicyDocument = {
-                                       'Statement' : [ {
-                                           'Effect' : 'Allow',
-                                           'Resource' : ['*'],
-                                           'Action' : ['ec2:CreateRoute', 'ec2:DeleteRoute', 'ec2:ModifyInstanceAttribute']
-                                       } ]
-                                   }
-                               )
-                           ])
+                        AssumeRolePolicyDocument = {
+                            'Statement' : [ {
+                                'Effect' : 'Allow',
+                                'Principal' : { 'Service' : ['ec2.amazonaws.com'] },
+                                'Action' : ['sts:AssumeRole']
+                            } ]
+                        },
+                        Policies = [
+                            iam.Policy(
+                                PolicyName = 'NATInstance',
+                                PolicyDocument = {
+                                    'Statement' : [ {
+                                        'Effect' : 'Allow',
+                                        'Resource' : ['*'],
+                                        'Action' : ['ec2:CreateRoute', 'ec2:DeleteRoute', 'ec2:ModifyInstanceAttribute']
+                                    } ]
+                                }
+                            )
+                        ])
         profile = iam.InstanceProfile('NATInstanceProfile',
                                       Path = '/',
                                       Roles = [tp.Ref(role)])
