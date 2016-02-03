@@ -4,7 +4,7 @@
 import sys
 from template.services import ServicesTemplate
 import boto3
-import stack
+import stacks
 
 if not len(sys.argv) > 1:
     print 'Usage: update_service_stack (network-stack-name)'
@@ -37,7 +37,7 @@ stack_parms = {
     ServicesTemplate.BASTION_KEY_PARM_NAME : 'bastion'
 }
 
-updater = stack.Updater('CoreServices', template.to_json())
+updater = stacks.Updater('CoreServices', template.to_json())
 results = updater.update(stack_parms)
 
 print 'ID:     ', results['id']

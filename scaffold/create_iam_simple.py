@@ -1,12 +1,12 @@
 #!/usr/bin/python
 
 from template.iam_simple import IAM
-import stack
+import stacks
 
 template = IAM('ScaffoldIAM')
 parameters = {}
 
-creator = stack.Creator('scaffold-iam-simple', template.to_json())
+creator = stacks.Creator('scaffold-iam-simple', template.to_json())
 results = creator.create(parameters)
 
 print 'ID:     ', results['id']

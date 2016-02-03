@@ -3,8 +3,8 @@
 import argparse
 from template.services import ServicesTemplate
 import stacks.outputs as so
+import stacks
 import boto3
-import stack
 
 def output_matching(outputs, key):
     return [o['OutputValue'] for o in outputs if o['OutputKey'] == key][0]
@@ -36,7 +36,7 @@ def create_stack(args):
         ServicesTemplate.BASTION_KEY_PARM_NAME : args.key
     }
 
-    creator = stack.Creator(args.stack_name, template.to_json(), region = args.region)
+    creator = stacks.Creator(args.stack_name, template.to_json(), region = args.region)
     results = creator.create(stack_parms)
 
 def echo_args(args):

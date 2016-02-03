@@ -2,7 +2,7 @@
 
 import sys
 from template.vpc_nxn import NxNVPC
-import stack
+import stacks
 
 # TODO: replace with argparse
 
@@ -15,7 +15,7 @@ stack_name = sys.argv[1]
 # TODO: query existing stack for relevant template and stack parameters
     
 template = NxNVPC(stack_name, description = 'Network stack for infrastructure services')
-creator = stack.Updater('{}VPC'.format(stack_name), template.to_json())
+creator = stacks.Updater('{}VPC'.format(stack_name), template.to_json())
 results = creator.update({})
 
 print 'ID:     ', results['id']

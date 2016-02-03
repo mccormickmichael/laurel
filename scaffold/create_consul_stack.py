@@ -4,7 +4,7 @@ import argparse
 
 import boto3
 from template.consul import ConsulTemplate
-import stack
+import stacks
 import stacks.outputs as so
 
 def create_stack(args):
@@ -38,7 +38,7 @@ def create_stack(args):
         ConsulTemplate.CONSUL_KEY_PARAM_NAME : args.key
     }
 
-    creator = stack.Creator(args.stack_name, template.to_json(), region = args.region)
+    creator = stacks.Creator(args.stack_name, template.to_json(), region = args.region)
     results = creator.create(stack_parms)
 
 def echo_args(args):

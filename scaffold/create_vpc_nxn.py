@@ -2,7 +2,7 @@
 
 import argparse
 from template.vpc_nxn import NxNVPC
-import stack
+import stacks
 
 def create_stack(args):
     if args.dry_run:
@@ -17,7 +17,7 @@ def create_stack(args):
                       pub_size = args.pub_size,
                       priv_size = args.priv_size)
                       
-    creator = stack.Creator(args.stack_name, template.to_json(), region = args.region)
+    creator = stacks.Creator(args.stack_name, template.to_json(), region = args.region)
     return creator.create({})
 
 def echo_args(args):
