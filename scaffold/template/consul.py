@@ -68,7 +68,7 @@ class ConsulTemplate(TemplateBuilderBase):
         self.add_parameter(tp.Parameter(self.CONSUL_KEY_PARAM_NAME, Type = 'String'))
 
     def create_eni(self, index, security_group, subnet_id):
-        eni = ec2.NetworkInterface('ConsulENI{}'.format(index),
+        eni = ec2.NetworkInterface('Consul{}ENI'.format(index),
                                    Description = 'ENI for Consul cluster member {}'.format(index),
                                    GroupSet = [tp.Ref(security_group)],
                                    SourceDestCheck = True,
@@ -92,7 +92,7 @@ class ConsulTemplate(TemplateBuilderBase):
         return sg
         
     def create_asg(self, index, security_group, iam_profile, subnet_id, eni):
-        lc = asg.LaunchConfiguration('ConsulLC{}'.format(index),
+        lc = asg.LaunchConfiguration('Consul{}LC'.format(index),
                                      ImageId = tp.FindInMap(AMI_REGION_MAP_NAME, REF_REGION, 'GENERAL'),
                                      InstanceType = self.instance_type,
                                      SecurityGroups = [tp.Ref(security_group)],
@@ -101,12 +101,13 @@ class ConsulTemplate(TemplateBuilderBase):
                                      InstanceMonitoring = False,
                                      AssociatePublicIpAddress = False,
                                      UserData = self._create_consul_userdata(eni))
-        group = asg.AutoScalingGroup('ConsulASG{}'.format(index),
+        group = asg.AutoScalingGroup('Consul{}ASG'.format(index),
                                      MinSize = 1, MaxSize = 1,
                                      LaunchConfigurationName = tp.Ref(lc),
                                      VPCZoneIdentifier = [subnet_id],
                                      Tags = asgtag(self._rename('{} Consul' + str(index))))
         self.add_resources(lc, group)
+        self.add_output(tp.Output(group.name, Value = tp.Ref(group)))
         return group
 
 
