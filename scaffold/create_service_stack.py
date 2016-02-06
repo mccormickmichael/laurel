@@ -36,8 +36,12 @@ def create_stack(args):
         ServicesTemplate.BASTION_KEY_PARM_NAME : args.key
     }
 
+    if args.update:
+        updater = stacks.Updater(args.stack_name, template.to_json(), region = args.region)
+        return updater.update(stack_parms)
+
     creator = stacks.Creator(args.stack_name, template.to_json(), region = args.region)
-    results = creator.create(stack_parms)
+    return creator.create(stack_parms)
 
 def echo_args(args):
     for k, v in vars(args).iteritems():
@@ -51,6 +55,7 @@ def get_args():
     ap.add_argument('-d', '--desc', default = '[REPLACE ME]', help = 'Stack description. Strongy encouraged.')
     ap.add_argument('-r', '--region', default = 'us-west-2', help = 'AWS Region in which to create the stack')
     ap.add_argument('-k', '--key', required = True, help = 'Name of the key pair to access the bastion server. Required.')
+    ap.add_argument('-u', '--update', action = 'store_true', help = 'Update the stack')
     
     return ap.parse_args()
 

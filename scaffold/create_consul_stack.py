@@ -22,7 +22,9 @@ def create_stack(args):
         'VPC ID       ' : vpc_id,
         'VPC CIDR     ' : vpc_cidr,
         'Subnets      ' : subnet_ids,
-        'Cluster Size ' : args.cluster_size})
+        'Cluster Size ' : args.cluster_size,
+        'Update       ' : args.update
+    })
 
     if args.dry_run:
         return
@@ -38,8 +40,12 @@ def create_stack(args):
         ConsulTemplate.CONSUL_KEY_PARAM_NAME : args.key
     }
 
+    if args.update:
+        updater = stacks.Updater(args.stack_name, template.to_json(), region = args.region)
+        return updater.update(stack_parms)
+
     creator = stacks.Creator(args.stack_name, template.to_json(), region = args.region)
-    results = creator.create(stack_parms)
+    return creator.create(stack_parms)
 
 def echo_args(args):
     for k, v in args.iteritems():
@@ -54,6 +60,7 @@ def get_args():
     ap.add_argument('-c', '--cluster-size', default = 3, help = 'Number of instances in the cluster')
     ap.add_argument('-r', '--region', default = 'us-west-2', help = 'AWS Region in which to create the stack')
     ap.add_argument('-k', '--key', required = True, help = 'Name of the key pair to access the consul servers. Required.')
+    ap.add_argument('-u', '--update', action = 'store_true', help = 'Update the stack')
     
     return ap.parse_args()
 
