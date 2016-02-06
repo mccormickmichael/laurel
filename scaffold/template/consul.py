@@ -29,9 +29,10 @@
 import troposphere.ec2 as ec2
 import troposphere.iam as iam
 import troposphere.autoscaling as asg
+import troposphere.cloudformation as cf
 import troposphere as tp
 from . import net
-from . import asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION
+from . import asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION, REF_STACK_NAME
 
 class ConsulTemplate(TemplateBuilderBase):
 
@@ -92,7 +93,8 @@ class ConsulTemplate(TemplateBuilderBase):
         return sg
         
     def create_asg(self, index, security_group, iam_profile, subnet_id, eni):
-        lc = asg.LaunchConfiguration('Consul{}LC'.format(index),
+        lc_name = 'Consul{}LC'.format(index)
+        lc = asg.LaunchConfiguration(lc_name,
                                      ImageId = tp.FindInMap(AMI_REGION_MAP_NAME, REF_REGION, 'GENERAL'),
                                      InstanceType = self.instance_type,
                                      SecurityGroups = [tp.Ref(security_group)],
@@ -100,7 +102,8 @@ class ConsulTemplate(TemplateBuilderBase):
                                      IamInstanceProfile = tp.Ref(iam_profile),
                                      InstanceMonitoring = False,
                                      AssociatePublicIpAddress = False,
-                                     UserData = self._create_consul_userdata(eni))
+                                     UserData = self._create_consul_userdata(eni, lc_name),
+                                     Metadata = self._create_consul_metadata())
         group = asg.AutoScalingGroup('Consul{}ASG'.format(index),
                                      MinSize = 1, MaxSize = 1,
                                      LaunchConfigurationName = tp.Ref(lc),
@@ -138,16 +141,49 @@ class ConsulTemplate(TemplateBuilderBase):
         self.add_resources(role, profile)
         return profile
 
-    def _create_consul_userdata(self, eni):
+    def _create_consul_userdata(self, eni, resource_name):
         startup = [
             '#!/bin/bash\n',
             'yum update -y && yum install -y yum-cron && chkconfig yum-cron on\n',
-            'REGION=$(curl http://169.254.169.254/latest/dynamic/instance-identity/document|grep region|awk -F\\" \'{print $4}\')\n',
+            'REGION=', REF_REGION, '\n',
             'INS_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)\n',
             'ENI_ID=', tp.Ref(eni), '\n',
             'aws ec2 attach-network-interface --instance-id $INS_ID --device-index 1 --network-interface-id $ENI_ID --region $REGION\n',
+            '/opt/aws/bin/cfn-init -v ',
+            '  --stack ', REF_STACK_NAME,
+            '  --resource ', resource_name,
+            '  --configsets install',
+            '  --region $REGION\n',
         ]
         return tp.Base64(tp.Join('', startup)) # TODO: There has GOT to be a better way to do userdata.
+
+    def _create_consul_metadata(self):
+        return cf.Metadata(
+            cf.Init(
+                cf.InitConfigSets(install=['install']),
+                install = cf.InitConfig(
+                    #packages = {},
+                    #groups = {}, # do we need a consul group?
+                    #users = {}, # do we need a consul user?
+                    sources = {
+                        # maybe download consul here? 
+                        # https://dl.bintray.com/mitchellh/consul/:0.5.2_linux_amd64.zip
+                        # https://dl.bintray.com/mitchellh/consul/:0.5.2_web_ui.zip
+                    },
+                    files = {
+                        # define custom consul.conf files here, maybe
+                    },
+                    commands = {
+                        'launch':{
+                            'command':'Launch Consul Server member here!'
+                        }
+                    },
+                    services = {
+                        # Or ensure the consul service is running here...
+                    }
+                )
+            )
+        )
                             
 if __name__ == '__main__':
     import sys
