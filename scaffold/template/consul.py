@@ -39,6 +39,7 @@ class ConsulTemplate(TemplateBuilderBase):
     CONSUL_KEY_PARAM_NAME = 'ConsulKey'
 
     def __init__(self, name,
+                 region,
                  vpc_id,
                  vpc_cidr,
                  subnet_ids,
@@ -47,6 +48,7 @@ class ConsulTemplate(TemplateBuilderBase):
                  instance_type = 't2.micro'):
         super(ConsulTemplate, self).__init__(name, description)
 
+        self.region = region
         self.vpc_id = vpc_id
         self.vpc_cidr = vpc_cidr
         self.subnets = subnet_ids
@@ -95,7 +97,7 @@ class ConsulTemplate(TemplateBuilderBase):
     def create_asg(self, index, security_group, iam_profile, subnet_id, eni):
         lc_name = 'Consul{}LC'.format(index)
         lc = asg.LaunchConfiguration(lc_name,
-                                     ImageId = tp.FindInMap(AMI_REGION_MAP_NAME, REF_REGION, 'GENERAL'),
+                                     ImageId = tp.FindInMap(AMI_REGION_MAP_NAME, self.region, 'GENERAL'),
                                      InstanceType = self.instance_type,
                                      SecurityGroups = [tp.Ref(security_group)],
                                      KeyName = tp.Ref(self.CONSUL_KEY_PARAM_NAME),
@@ -103,12 +105,12 @@ class ConsulTemplate(TemplateBuilderBase):
                                      InstanceMonitoring = False,
                                      AssociatePublicIpAddress = False,
                                      UserData = self._create_consul_userdata(eni, lc_name),
-                                     Metadata = self._create_consul_metadata())
+                                     Metadata = self._create_consul_metadata(eni))
         group = asg.AutoScalingGroup('Consul{}ASG'.format(index),
                                      MinSize = 1, MaxSize = 1,
                                      LaunchConfigurationName = tp.Ref(lc),
                                      VPCZoneIdentifier = [subnet_id],
-                                     Tags = asgtag(self._rename('{} Consul' + str(index))))
+                                     Tags = asgtag(self._rename('{} Consul Server-' + str(index))))
         self.add_resources(lc, group)
         self.add_output(tp.Output(group.name, Value = tp.Ref(group)))
         return group
@@ -145,10 +147,11 @@ class ConsulTemplate(TemplateBuilderBase):
         startup = [
             '#!/bin/bash\n',
             'yum update -y && yum install -y yum-cron && chkconfig yum-cron on\n',
-            'REGION=', REF_REGION, '\n',
+            'REGION=', self.region, '\n',
             'INS_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)\n',
             'ENI_ID=', tp.Ref(eni), '\n',
             'aws ec2 attach-network-interface --instance-id $INS_ID --device-index 1 --network-interface-id $ENI_ID --region $REGION\n',
+            "CONSUL_IP=ifconfig eth1 | awk '/inet addr/{print substr($2,6)}'\n",
             '/opt/aws/bin/cfn-init -v ',
             '  --stack ', REF_STACK_NAME,
             '  --resource ', resource_name,
@@ -157,7 +160,7 @@ class ConsulTemplate(TemplateBuilderBase):
         ]
         return tp.Base64(tp.Join('', startup)) # TODO: There has GOT to be a better way to do userdata.
 
-    def _create_consul_metadata(self):
+    def _create_consul_metadata(self, eni):
         return cf.Metadata(
             cf.Init(
                 cf.InitConfigSets(install=['install']),
@@ -166,20 +169,39 @@ class ConsulTemplate(TemplateBuilderBase):
                     #groups = {}, # do we need a consul group?
                     #users = {}, # do we need a consul user?
                     sources = {
-                        # maybe download consul here? 
-                        # https://dl.bintray.com/mitchellh/consul/:0.5.2_linux_amd64.zip
-                        # https://dl.bintray.com/mitchellh/consul/:0.5.2_web_ui.zip
+                        '/opt/consul/agent' : 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_linux_amd64.zip',
+                        '/opt/consul/ui' : 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_web_ui.zip' # TODO: move to public instance
                     },
                     files = {
-                        # define custom consul.conf files here, maybe
+                        # See https://www.consul.io/docs/agent/options.html#configuration_files
+                        '/etc/consul/consul.json': {
+                            'content' : {
+                                'datacenter' : self.region,
+                                'data_dir' : '/opt/consul/data',
+                                'log_level' : 'INFO',
+                                'server' : True,
+                                'bootstrap-expect' : self.cluster_size,
+                                'bind_addr' : tp.Ref(eni), #resolved later
+                                'retry-join' : [tp.Ref(e) for e in self.enis if e != eni ]# resolved later
+                            },
+                            'mode' : '000755',
+                            'owner' : 'root', # could be consul user?
+                            'group' : 'root'  # could be consul group?
+                        }
+                        # '/opt/consul/config.py' : !!FROM S3!!
+                        # /etc/init/consul-server.conf (instructions for initrc) e.g. exec consul agent -config-dir /etc/consul/consul.json
                     },
                     commands = {
-                        'launch':{
-                            'command':'Launch Consul Server member here!'
-                        }
+                        'dirs' : {
+                            'command' : 'mkdir /opt/consul/data && chmod 755 /opt/consul/data'
+                        },
+                        # 'config' : {
+                        #     'command' : 'python /opt/consul/config.py /etc/consul/consul.json {}'.format(self.region)
+                        # }
                     },
                     services = {
                         # Or ensure the consul service is running here...
+                        # maybe dnsmasq too? 
                     }
                 )
             )
@@ -188,8 +210,9 @@ class ConsulTemplate(TemplateBuilderBase):
 if __name__ == '__main__':
     import sys
     name = sys.argv[1] if len(sys.argv) > 1 else 'Test'
-    vpc_id = sys.argv[2] if len(sys.argv) > 2 else 'vpc-deadbeef'
-    vpc_cidr = sys.argv[3] if len(sys.argv) > 3 else '10.0.0.0/16'
-    subnet_ids = sys.argv[4:] if len(sys.argv) > 4 else ['subnet-deadbeef', 'subnet-cab4abba']
+    region = sys.argv[2] if len(sys.argv) > 2 else 'us-west-2'
+    vpc_id = sys.argv[3] if len(sys.argv) > 3 else 'vpc-deadbeef'
+    vpc_cidr = sys.argv[4] if len(sys.argv) > 4 else '10.0.0.0/16'
+    subnet_ids = sys.argv[5:] if len(sys.argv) > 5 else ['subnet-deadbeef', 'subnet-cab4abba']
 
-    print ConsulTemplate(name, vpc_id, vpc_cidr, subnet_ids).to_json()
+    print ConsulTemplate(name, region, vpc_id, vpc_cidr, subnet_ids).to_json()
