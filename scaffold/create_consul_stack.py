@@ -32,7 +32,7 @@ def create_stack(args):
     s3 = boto3.resource('s3', region_name = args.region)
     bucket = s3.Bucket(args.bucket)
     prefix = 'scaffold/'
-    for fname in glob.glob('consul/*.py'):
+    for fname in glob.glob('consul/*'):
         print fname
         with open(fname, 'r') as f:
             bucket.put_object(Key = prefix + fname,
