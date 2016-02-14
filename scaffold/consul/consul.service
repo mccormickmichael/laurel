@@ -1,0 +1,127 @@
+#!/bin/bash
+#
+# consul       Manage the consul agent. Ref: https://gist.github.com/blalor/c325d500818361e28daf#
+
+# chkconfig:   2345 95 95
+# description: Consul is a tool for service discovery and configuration
+# processname: consul
+# config:      /opt/consul/*.json
+# pidfile:     /var/run/consul.pid
+
+### BEGIN INIT INFO
+# Provides:          consul
+# Required-Start:    $local_fs $network
+# Required-Stop:
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Manage the consul agent
+# Descripton:        Consul is a tool for service discovery and configuration
+### END INIT INFO
+
+. /etc/rc.d/init.d/functions
+
+agent="consul"
+user="root"
+exec="/opt/consul/agent/$agent"
+pidfile="/var/run/$agent.pid"
+lockfile="/var/lock/subsys/$agent"
+logfile="/var/log/$agent"
+confdir="/etc/consul"
+
+# sysconfigs for consul, if they exist
+[ -e /etc/sysconfig/$agent ] && . /etc/sysconfig/$agent
+
+# not sure if this is necessary for recent consul versions
+export GOMAXPROCS=${GOMAXPROCS:-2}
+
+start() {
+    [ -x $exec ] || exit 5
+
+    umask 077
+
+    touch $logfile $pidfile
+    chown $user:$user $logfile $pidfile
+
+    echo -n $"Starting $agent: "
+
+    # MAGIC! refer to the original author for explanation
+    daemon \
+	--pidfile=$pidfile \
+	--user=$user \
+	" { $exec agent -config-dir=$confdir &>> $logfile & } ; echo \$! >| $pidfile "
+
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && touch $lockfile
+    return $RETVAL
+}
+
+stop() {
+    echo -n $"Shutting down $agent: "
+    killproc -p $pidfile $exec -INT
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && rm -f $lockfile
+    return $RETVAL
+}
+
+restart() {
+    stop
+    start
+}
+
+reload() {
+    echo -n $"Reloading $agent: "
+    killproc -p $pidfile $exec -HUP
+    echo
+}
+
+force_reload() {
+    restart
+}
+
+rh_status() {
+    status -p "$pidfile" -l $agent $exec
+}
+
+rh_status_q() {
+    rh_status >/dev/null 2>&1
+}
+
+case "$1" in
+    start)
+	rh_status_q && exit 0
+	start
+	;;
+    stop)
+	rh_status_q || exit 0
+	stop
+	;;
+    restart)
+	restart
+	;;
+    reload)
+	rh_status_q || exit 7
+	reload
+	;;
+    force-reload)
+	force_reload
+	;;
+    status)
+	rh_status
+	;;
+    condrestart|try-restart)
+	rh_status_q || exit 0
+	restart
+	;;
+    *)
+	echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
+	exit 2
+
+esac
+
+exit $?
+
+
+
