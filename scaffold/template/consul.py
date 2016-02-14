@@ -223,8 +223,14 @@ class ConsulTemplate(TemplateBuilderBase):
                         }
                     },
                     services = {
-                        # Or ensure the consul service is running here...
-                        # maybe dnsmasq too? 
+                        'consul' : {
+                            'enabled' : 'true',
+                            'ensureRunning' : 'true',
+                            'files' : [ config_file ],
+                            'sources' : [ agent_dir ],
+                            'commands' : 'config'
+                        },
+                        # dnsmasq?
                     }
                 )
             )

@@ -2,7 +2,7 @@
 #
 # consul       Manage the consul agent. Ref: https://gist.github.com/blalor/c325d500818361e28daf#
 
-# chkconfig:   2345 95 95
+# chkconfig:   2345 95 05
 # description: Consul is a tool for service discovery and configuration
 # processname: consul
 # config:      /opt/consul/*.json
