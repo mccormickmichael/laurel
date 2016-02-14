@@ -40,6 +40,7 @@ class ConsulTemplate(TemplateBuilderBase):
 
     def __init__(self, name,
                  region,
+                 bucket,
                  vpc_id,
                  vpc_cidr,
                  subnet_ids,
@@ -49,6 +50,7 @@ class ConsulTemplate(TemplateBuilderBase):
         super(ConsulTemplate, self).__init__(name, description)
 
         self.region = region
+        self.bucket = bucket
         self.vpc_id = vpc_id
         self.vpc_cidr = vpc_cidr
         self.subnets = subnet_ids
@@ -132,7 +134,11 @@ class ConsulTemplate(TemplateBuilderBase):
                                     'Statement' : [ {
                                         'Effect' : 'Allow',
                                         'Resource' : ['*'],
-                                        'Action' : ['ec2:AttachNetworkInterface', 'ec2:DetachNetworkInterface']
+                                        'Action' : ['ec2:Attach*', 'ec2:Describe*', 's3:*']
+                                    }, {
+                                        'Effect' : 'Allow',
+                                        'Resource' : 'arn:aws:s3:::{}/*'.format(self.bucket),
+                                        'Action' : ['s3:Get*']
                                     } ]
                                 }
                             )
@@ -151,7 +157,7 @@ class ConsulTemplate(TemplateBuilderBase):
             'INS_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)\n',
             'ENI_ID=', tp.Ref(eni), '\n',
             'aws ec2 attach-network-interface --instance-id $INS_ID --device-index 1 --network-interface-id $ENI_ID --region $REGION\n',
-            "CONSUL_IP=ifconfig eth1 | awk '/inet addr/{print substr($2,6)}'\n",
+#            "CONSUL_IP=ifconfig eth1 | awk '/inet addr/{print substr($2,6)}'\n",
             '/opt/aws/bin/cfn-init -v ',
             '  --stack ', REF_STACK_NAME,
             '  --resource ', resource_name,
@@ -161,43 +167,60 @@ class ConsulTemplate(TemplateBuilderBase):
         return tp.Base64(tp.Join('', startup)) # TODO: There has GOT to be a better way to do userdata.
 
     def _create_consul_metadata(self, eni):
+        consul_dir = '/opt/consul'
+        agent_dir = '{}/agent'.format(consul_dir)
+        config_dir = '{}/config'.format(consul_dir)
+        config_file = '{}/config.json'.format(config_dir)
+        config_py = '{}/config.py'.format(consul_dir)
+        data_dir = '{}/data'.format(consul_dir)
+        source_prefix = 'http://{}.s3.amazonaws.com/scaffold/consul'.format(self.bucket)
         return cf.Metadata(
             cf.Init(
                 cf.InitConfigSets(install=['install']),
                 install = cf.InitConfig(
-                    #packages = {},
+                    packages = {
+                        'python' : {
+                            'boto3' : []
+                        }
+                    },
                     #groups = {}, # do we need a consul group?
                     #users = {}, # do we need a consul user?
                     sources = {
-                        '/opt/consul/agent' : 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_linux_amd64.zip',
-                        '/opt/consul/ui' : 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_web_ui.zip' # TODO: move to public instance
+                        agent_dir : 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_linux_amd64.zip',
                     },
                     files = {
                         # See https://www.consul.io/docs/agent/options.html#configuration_files
-                        '/etc/consul/consul.json': {
+                        config_file : {
                             'content' : {
                                 'datacenter' : self.region,
-                                'data_dir' : '/opt/consul/data',
+                                'data_dir' : data_dir,
                                 'log_level' : 'INFO',
                                 'server' : True,
-                                'bootstrap-expect' : self.cluster_size,
+                                'bootstrap_expect' : self.cluster_size,
                                 'bind_addr' : tp.Ref(eni), #resolved later
-                                'retry-join' : [tp.Ref(e) for e in self.enis if e != eni ]# resolved later
+                                'retry_join' : [tp.Ref(e) for e in self.enis if e != eni ]# resolved later
                             },
                             'mode' : '000755',
                             'owner' : 'root', # could be consul user?
                             'group' : 'root'  # could be consul group?
+                        },
+                        config_py : {
+                            'source' : '{}/config.py'.format(source_prefix)
+                        },
+                        '/etc/init.d/consul' : {
+                            'source' : '{}/consul.service'.format(source_prefix)
                         }
-                        # '/opt/consul/config.py' : !!FROM S3!!
-                        # /etc/init/consul-server.conf (instructions for initrc) e.g. exec consul agent -config-dir /etc/consul/consul.json
                     },
                     commands = {
                         'dirs' : {
-                            'command' : 'mkdir /opt/consul/data && chmod 755 /opt/consul/data'
+                            'command' : 'mkdir -p {}'.format(data_dir) # also -m 755?
                         },
-                        # 'config' : {
-                        #     'command' : 'python /opt/consul/config.py /etc/consul/consul.json {}'.format(self.region)
-                        # }
+                        'exec' : {
+                            'command' : 'chmod 755 {}/consul'.(agent_dir)
+                        },
+                        'config' : {
+                            'command' : 'cp {0} {0}.orig && python {2} {0} {1}'.format(config_file, self.region, config_py) # blech.
+                        }
                     },
                     services = {
                         # Or ensure the consul service is running here...
@@ -211,8 +234,9 @@ if __name__ == '__main__':
     import sys
     name = sys.argv[1] if len(sys.argv) > 1 else 'Test'
     region = sys.argv[2] if len(sys.argv) > 2 else 'us-west-2'
-    vpc_id = sys.argv[3] if len(sys.argv) > 3 else 'vpc-deadbeef'
-    vpc_cidr = sys.argv[4] if len(sys.argv) > 4 else '10.0.0.0/16'
-    subnet_ids = sys.argv[5:] if len(sys.argv) > 5 else ['subnet-deadbeef', 'subnet-cab4abba']
+    bucket = sys.argv[3] if len(sys.argv) > 3 else 'thousandleaves-us-west-2-laurel-deploy'
+    vpc_id = sys.argv[4] if len(sys.argv) > 4 else 'vpc-deadbeef'
+    vpc_cidr = sys.argv[5] if len(sys.argv) > 5 else '10.0.0.0/16'
+    subnet_ids = sys.argv[6:] if len(sys.argv) > 6 else ['subnet-deadbeef', 'subnet-cab4abba']
 
-    print ConsulTemplate(name, region, vpc_id, vpc_cidr, subnet_ids).to_json()
+    print ConsulTemplate(name, region, bucket, vpc_id, vpc_cidr, subnet_ids).to_json()

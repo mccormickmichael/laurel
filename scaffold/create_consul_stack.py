@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import argparse
+import glob
 
 import boto3
 from template.consul import ConsulTemplate
@@ -19,6 +20,7 @@ def create_stack(args):
     echo_args({
         'Stack Name   ' : args.stack_name,
         'Region       ' : args.region,
+        'Bucket       ' : args.bucket,
         'Description  ' : args.desc,
         'VPC ID       ' : vpc_id,
         'VPC CIDR     ' : vpc_cidr,
@@ -27,11 +29,21 @@ def create_stack(args):
         'Update       ' : args.update
     })
 
+    s3 = boto3.resource('s3', region_name = args.region)
+    bucket = s3.Bucket(args.bucket)
+    prefix = 'scaffold/'
+    for fname in glob.glob('consul/*.py'):
+        print fname
+        with open(fname, 'r') as f:
+            bucket.put_object(Key = prefix + fname,
+                              Body = f.read())
+
     if args.dry_run:
         return
 
     template = ConsulTemplate(args.stack_name,
                               region = args.region,
+                              bucket = args.bucket,
                               description = args.desc,
                               vpc_id = vpc_id,
                               vpc_cidr = vpc_cidr,
@@ -43,10 +55,10 @@ def create_stack(args):
     }
 
     if args.update:
-        updater = stacks.Updater(args.stack_name, template.to_json(), region = args.region)
+        updater = stacks.Updater(args.stack_name, template.to_json(), region = args.region, bucket_name = args.bucket)
         return updater.update(stack_parms)
 
-    creator = stacks.Creator(args.stack_name, template.to_json(), region = args.region)
+    creator = stacks.Creator(args.stack_name, template.to_json(), region = args.region, bucket_name = args.bucket)
     return creator.create(stack_parms)
 
 def echo_args(args):
@@ -61,6 +73,7 @@ def get_args():
     ap.add_argument('-d', '--desc', default = '[REPLACE ME]', help = 'Stack description. Strongy encouraged')
     ap.add_argument('-c', '--cluster-size', default = 3, type = int, help = 'Number of instances in the cluster')
     ap.add_argument('-r', '--region', default = 'us-west-2', help = 'AWS Region in which to create the stack')
+    ap.add_argument('-b', '--bucket', default = 'thousandleaves-us-west-2-laurel-deploy', help = 'S3 bucket to use for the stack template and resources')
     ap.add_argument('-k', '--key', required = True, help = 'Name of the key pair to access the consul servers. Required.')
     ap.add_argument('-u', '--update', action = 'store_true', help = 'Update the stack')
     
