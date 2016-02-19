@@ -216,7 +216,7 @@ class ConsulTemplate(TemplateBuilderBase):
                             'command' : 'mkdir -p {}'.format(data_dir) # also -m 755?
                         },
                         'exec' : {
-                            'command' : 'chmod 755 {}/consul'.(agent_dir)
+                            'command' : 'chmod 755 {}/consul'.format(agent_dir)
                         },
                         'config' : {
                             'command' : 'cp {0} {0}.orig && python {2} {0} {1}'.format(config_file, self.region, config_py) # blech.
