@@ -205,10 +205,16 @@ class ConsulTemplate(TemplateBuilderBase):
                             'group' : 'root'  # could be consul group?
                         },
                         config_py : {
-                            'source' : '{}/config.py'.format(source_prefix)
+                            'source' : '{}/config.py'.format(source_prefix),
+                            'mode' : '000755',
+                            'owner' : 'root',
+                            'group' : 'root'
                         },
                         '/etc/init.d/consul' : {
-                            'source' : '{}/consul.service'.format(source_prefix)
+                            'source' : '{}/consul.service'.format(source_prefix),
+                            'mode' : '000755',
+                            'owner' : 'root',
+                            'group' : 'root'
                         }
                     },
                     commands = {
@@ -220,6 +226,9 @@ class ConsulTemplate(TemplateBuilderBase):
                         },
                         'config' : {
                             'command' : 'cp {0} {0}.orig && python {2} {0} {1}'.format(config_file, self.region, config_py) # blech.
+                        }
+                        'chkconfig' : {
+                            'command' : 'chkconfig --add consul'
                         }
                     },
                     services = {

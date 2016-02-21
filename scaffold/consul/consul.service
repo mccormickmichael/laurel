@@ -27,7 +27,7 @@ exec="/opt/consul/agent/$agent"
 pidfile="/var/run/$agent.pid"
 lockfile="/var/lock/subsys/$agent"
 logfile="/var/log/$agent"
-confdir="/etc/consul"
+confdir="/opt/consul/config"
 
 # sysconfigs for consul, if they exist
 [ -e /etc/sysconfig/$agent ] && . /etc/sysconfig/$agent
