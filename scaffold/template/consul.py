@@ -226,7 +226,7 @@ class ConsulTemplate(TemplateBuilderBase):
                         },
                         'config' : {
                             'command' : 'cp {0} {0}.orig && python {2} {0} {1}'.format(config_file, self.region, config_py) # blech.
-                        }
+                        },
                         'chkconfig' : {
                             'command' : 'chkconfig --add consul'
                         }
