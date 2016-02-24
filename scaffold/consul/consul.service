@@ -41,7 +41,8 @@ start() {
     umask 077
 
     touch $logfile $pidfile
-    chown $user:$user $logfile $pidfile
+    chown $user:$user $pidfile $logfile
+    chmod 644 $logfile
 
     echo -n $"Starting $agent: "
 

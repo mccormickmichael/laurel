@@ -218,26 +218,31 @@ class ConsulTemplate(TemplateBuilderBase):
                         }
                     },
                     commands = {
-                        'dirs' : {
+                        '01_dirs' : {
                             'command' : 'mkdir -p {}'.format(data_dir) # also -m 755?
                         },
-                        'exec' : {
+                        '02_mode' : {
                             'command' : 'chmod 755 {}/consul'.format(agent_dir)
                         },
-                        'config' : {
+                        '03_config' : {
                             'command' : 'cp {0} {0}.orig && python {2} {0} {1}'.format(config_file, self.region, config_py) # blech.
                         },
-                        'chkconfig' : {
+                        '04_chkconfig' : {
                             'command' : 'chkconfig --add consul'
+                        },
+                        '05_wait' : {
+                            'command' : 'sleep 10' # try waiting for IP binding to be effective.
                         }
                     },
                     services = {
-                        'consul' : {
-                            'enabled' : 'true',
-                            'ensureRunning' : 'true',
-                            'files' : [ config_file ],
-                            'sources' : [ agent_dir ],
-                            'commands' : 'config'
+                        'sysvinit' : {
+                            'consul' : {
+                                'enabled' : 'true',
+                                'ensureRunning' : 'true',
+                                'files' : [ config_file ],
+                                'sources' : [ agent_dir ],
+                                'commands' : 'config'
+                            }
                         },
                         # dnsmasq?
                     }

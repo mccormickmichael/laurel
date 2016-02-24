@@ -100,6 +100,7 @@ class NxNVPC(TemplateBuilderBase):
             net.nacl_ingress(pre + 'HttpIn',      nacl, 100, net.HTTP,  net.TCP),
             net.nacl_ingress(pre + 'HttpsIn',     nacl, 101, net.HTTPS, net.TCP),
             net.nacl_ingress(pre + 'SSHIn',       nacl, 102, net.SSH,   net.TCP),
+            net.nacl_ingress(pre + 'UDPGossipIn', nacl, 150, 8301,      net.UDP, self.vpc_cidr),
             net.nacl_ingress(pre + 'EphemeralIn', nacl, 200, net.NAT,   net.TCP)
         ] + [
             net.nacl_egress(pre + 'AnyOut', nacl, 100, net.ANY_PORT, net.ANY_PROTOCOL)
@@ -160,6 +161,7 @@ class NxNVPC(TemplateBuilderBase):
             net.nacl_ingress(pre + 'HttpIn',      nacl, 100, net.HTTP,  net.TCP, self.vpc_cidr),
             net.nacl_ingress(pre + 'HttpsIn',     nacl, 101, net.HTTPS, net.TCP, self.vpc_cidr),
             net.nacl_ingress(pre + 'SSHIn',       nacl, 102, net.SSH,   net.TCP, self.vpc_cidr),
+            net.nacl_ingress(pre + 'UDPGossipIn', nacl, 150, 8301,      net.UDP, self.vpc_cidr),
             net.nacl_ingress(pre + 'EphemeralIn', nacl, 200, net.NAT,   net.TCP)
         ] + [
             net.nacl_egress(pre + 'AnyOut', nacl, 100, net.ANY_PORT, net.ANY_PROTOCOL)
