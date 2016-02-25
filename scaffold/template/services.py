@@ -41,6 +41,8 @@ from . import asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION
 
 class ServicesTemplate(TemplateBuilderBase):
 
+    BUILD_PARM_NAMES = ['vpc_id', 'vpc_cidr', 'private_route_table_id', 'public_subnet_ids',
+                        'region', 'nat_instance_type', 'bastion_instance_type']
     BASTION_KEY_PARM_NAME = 'BastionKey'
 
     def __init__(self, name, 
@@ -56,11 +58,13 @@ class ServicesTemplate(TemplateBuilderBase):
 
         self.vpc_id = vpc_id
         self.vpc_cidr = vpc_cidr
-        self.subnet_ids = public_subnet_ids
-        self.route_table_id = private_route_table_id
+        self.public_subnet_ids = public_subnet_ids
+        self.private_route_table_id = private_route_table_id
         self.region = region
         self.nat_instance_type = nat_instance_type
         self.bastion_instance_type = bastion_instance_type
+
+        self._add_build_parms(self.BUILD_PARM_NAMES)
 
         self.create_parameters()
 
@@ -92,7 +96,7 @@ class ServicesTemplate(TemplateBuilderBase):
         group = asg.AutoScalingGroup('NATASG',
                                      MinSize = 1, MaxSize = 1,
                                      LaunchConfigurationName = tp.Ref(lc),
-                                     VPCZoneIdentifier = self.subnet_ids,
+                                     VPCZoneIdentifier = self.public_subnet_ids,
                                      Tags = asgtag(self._rename('{} NAT')))
 
         self.add_resources(group, lc)
@@ -132,8 +136,8 @@ class ServicesTemplate(TemplateBuilderBase):
             "yum update -y && yum install -y yum-cron && chkconfig yum-cron on",
             "INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id`",
             "aws ec2 modify-instance-attribute --instance-id $INS_ID --no-source-dest-check --region {}".format(self.region),
-            "aws ec2 delete-route --destination-cidr-block 0.0.0.0/0 --route-table-id {} --region {}".format(self.route_table_id, self.region),
-            "aws ec2 create-route --route-table-id {} --destination-cidr-block 0.0.0.0/0 --instance-id $INS_ID --region {}".format(self.route_table_id, self.region)
+            "aws ec2 delete-route --destination-cidr-block 0.0.0.0/0 --route-table-id {} --region {}".format(self.private_route_table_id, self.region),
+            "aws ec2 create-route --route-table-id {} --destination-cidr-block 0.0.0.0/0 --instance-id $INS_ID --region {}".format(self.private_route_table_id, self.region)
         ]
         return tp.Base64(tp.Join('\n', startup))
 
@@ -149,7 +153,7 @@ class ServicesTemplate(TemplateBuilderBase):
         group = asg.AutoScalingGroup('BastionASG',
                                      MinSize = 1, MaxSize = 1,
                                      LaunchConfigurationName = tp.Ref(lc),
-                                     VPCZoneIdentifier = self.subnet_ids,
+                                     VPCZoneIdentifier = self.public_subnet_ids,
                                      Tags = asgtag(self._rename('{} Bastion')))
         self.add_resources(group, lc)
         self.add_output(tp.Output('BastionASG', Value = tp.Ref(group)))

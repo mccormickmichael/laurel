@@ -23,6 +23,7 @@ def mergetag(a, b):
     return tp.Tags(**d)
 
 class TemplateBuilderBase(object):
+
     def __init__(self, name, description):
         self.name = name
         self.default_tags = tp.Tags(Application = REF_STACK_NAME, Name = self.name)
@@ -33,6 +34,11 @@ class TemplateBuilderBase(object):
 
     def to_json(self):
         return self.template.to_json()
+
+    def add_metadata(self, key, meta_dict):
+        meta = self.template.metadata or {}
+        meta[key] = meta_dict
+        self.template.add_metadata(meta)
 
     def add_mapping(self, mapping_name, mapping):
         self.template.add_mapping(mapping_name, mapping)
@@ -49,8 +55,14 @@ class TemplateBuilderBase(object):
     def add_output(self, outputs):
         self.template.add_output(outputs)
 
+    def _add_build_parms(self, attrs):
+        parms_dict = {attr: getattr(self, attr) for attr in attrs}
+        self.add_metadata(BUILD_PARMS_NAME, parms_dict)
+
     def _rename(self, fmt):
         return retag(self.default_tags, Name = fmt.format(self.name))
+
+BUILD_PARMS_NAME = 'BuildParameters'
 
 REF_STACK_NAME = tp.Ref('AWS::StackName')
 REF_REGION = tp.Ref('AWS::Region')

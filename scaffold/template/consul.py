@@ -36,6 +36,7 @@ from . import asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION, REF_
 
 class ConsulTemplate(TemplateBuilderBase):
 
+    BUILD_PARM_NAMES = ['region', 'bucket', 'vpc_id', 'vpc_cidr', 'subnet_ids', 'cluster_size', 'instance_type']
     CONSUL_KEY_PARAM_NAME = 'ConsulKey'
 
     def __init__(self, name,
@@ -53,9 +54,11 @@ class ConsulTemplate(TemplateBuilderBase):
         self.bucket = bucket
         self.vpc_id = vpc_id
         self.vpc_cidr = vpc_cidr
-        self.subnets = subnet_ids
+        self.subnet_ids = subnet_ids
         self.cluster_size = cluster_size
         self.instance_type = instance_type
+
+        self._add_build_parms(self.BUILD_PARM_NAMES)
 
         self.create_parameters()
 
@@ -63,10 +66,10 @@ class ConsulTemplate(TemplateBuilderBase):
         iam_profile = self.create_iam_profile()
 
         self.enis = [
-            self.create_eni(i, sg, self.subnets[i % len(self.subnets)]) for i in range(0, cluster_size)
+            self.create_eni(i, sg, self.subnet_ids[i % len(self.subnet_ids)]) for i in range(0, cluster_size)
         ]
         self.asgs = [
-            self.create_asg(i, sg, iam_profile, self.subnets[i % len(self.subnets)], self.enis[i]) for i in range(0, cluster_size)
+            self.create_asg(i, sg, iam_profile, self.subnet_ids[i % len(self.subnet_ids)], self.enis[i]) for i in range(0, cluster_size)
         ]
 
     def create_parameters(self):

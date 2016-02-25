@@ -35,6 +35,8 @@ from . import retag, TemplateBuilderBase
 
 class NxNVPC(TemplateBuilderBase):
 
+    BUILD_PARM_NAMES = ['vpc_cidr', 'region', 'availability_zones', 'pub_size', 'priv_size']
+
     def __init__(self, name, description = '[REPLACEME]',
                  vpc_cidr = '172.16.0.0/16',
                  region = 'us-west-2',
@@ -46,9 +48,11 @@ class NxNVPC(TemplateBuilderBase):
         self.vpc_cidr = vpc_cidr
         self.vpc_cidr_alloc = cidr.CidrBlockAllocator(vpc_cidr)
         self.region = region
-        self.azs = availability_zones
-        self.pub_size = pub_size
-        self.priv_size = priv_size
+        self.availability_zones = availability_zones
+        self.pub_size = int(pub_size)
+        self.priv_size = int(priv_size)
+
+        self._add_build_parms(self.BUILD_PARM_NAMES)
 
         self.create_vpc()
         self.create_public_routes()
@@ -59,7 +63,7 @@ class NxNVPC(TemplateBuilderBase):
         self.pub_subnets = {}
         self.priv_subnets = {}
         self.create_private_nacl()
-        for az in self.azs:
+        for az in self.availability_zones:
             self.create_subnets_in_az(az)
 
     def create_vpc(self):
@@ -100,7 +104,7 @@ class NxNVPC(TemplateBuilderBase):
             net.nacl_ingress(pre + 'HttpIn',      nacl, 100, net.HTTP,  net.TCP),
             net.nacl_ingress(pre + 'HttpsIn',     nacl, 101, net.HTTPS, net.TCP),
             net.nacl_ingress(pre + 'SSHIn',       nacl, 102, net.SSH,   net.TCP),
-            net.nacl_ingress(pre + 'UDPGossipIn', nacl, 150, 8301,      net.UDP, self.vpc_cidr),
+            net.nacl_ingress(pre + 'UDPGossipIn', nacl, 150, net.NAT,   net.UDP, self.vpc_cidr),
             net.nacl_ingress(pre + 'EphemeralIn', nacl, 200, net.NAT,   net.TCP)
         ] + [
             net.nacl_egress(pre + 'AnyOut', nacl, 100, net.ANY_PORT, net.ANY_PROTOCOL)
