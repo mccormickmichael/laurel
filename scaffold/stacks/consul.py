@@ -134,14 +134,23 @@ class ConsulTemplate(TemplateBuilderBase):
                             iam.Policy(
                                 PolicyName = 'ConsulInstance',
                                 PolicyDocument = {
-                                    'Statement' : [ {
-                                        'Effect' : 'Allow',
-                                        'Resource' : ['*'],
-                                        'Action' : ['ec2:Attach*', 'ec2:Describe*', 's3:*']
+                                    'Statement': [ {
+                                        'Effect': 'Allow',
+                                        'Resource': ['*'],
+                                        'Action': ['ec2:Attach*', 'ec2:Describe*', 's3:*']
                                     }, {
-                                        'Effect' : 'Allow',
-                                        'Resource' : 'arn:aws:s3:::{}/*'.format(self.bucket),
-                                        'Action' : ['s3:Get*']
+                                        'Effect': 'Allow',
+                                        'Resource': 'arn:aws:s3:::{}/*'.format(self.bucket),
+                                        'Action': ['s3:Get*']
+                                    }, {
+                                        'Effect': 'Allow',
+                                        'Resource': 'arn:aws:logs:*:*:*', # TODO: look at CW Logs ARN and restrict further
+                                        'Action': [
+                                            'logs:CreateLogGroup',
+                                            'logs:CreateLogStream',
+                                            'logs:PutLogEvents',
+                                            'logs:DescribeLogStreams'
+                                        ]
                                     } ]
                                 }
                             )
@@ -159,7 +168,9 @@ class ConsulTemplate(TemplateBuilderBase):
             'REGION=', self.region, '\n',
             'INS_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)\n',
             'ENI_ID=', tp.Ref(eni), '\n',
+            # TODO: do we need a sleep/check loop here? It hasn't failed so far
             'aws ec2 attach-network-interface --instance-id $INS_ID --device-index 1 --network-interface-id $ENI_ID --region $REGION\n',
+#            'mkdir /opt/consul && echo {} > /opt/consul/eni && chmod 755 /opt/consul/eni\n',
 #            "CONSUL_IP=ifconfig eth1 | awk '/inet addr/{print substr($2,6)}'\n",
             '/opt/aws/bin/cfn-init -v ',
             '  --stack ', REF_STACK_NAME,
@@ -218,6 +229,18 @@ class ConsulTemplate(TemplateBuilderBase):
                             'mode' : '000755',
                             'owner' : 'root',
                             'group' : 'root'
+                        },
+                        '/opt/cw-logs/awslogs-agent-setup.py': {
+                            'source': 'https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py',
+                            'mode': '000755',
+                            'owner': 'root',
+                            'group': 'root'
+                        },
+                        '/opt/cw-logs/cwlogs.cfg': {
+                            'source': '{}/cwlogs.cfg'.format(source_prefix),
+                            'mode': '000755',
+                            'owner': 'root',
+                            'group': 'root'
                         }
                     },
                     commands = {
@@ -230,11 +253,14 @@ class ConsulTemplate(TemplateBuilderBase):
                         '03_config' : {
                             'command' : 'cp {0} {0}.orig && python {2} {0} {1}'.format(config_file, self.region, config_py) # blech.
                         },
-                        '04_chkconfig' : {
+                        '04_wait' : {
+                            'command' : 'while [ `ifconfig | grep "inet addr" | wc -l` -lt 3 ]; do echo "waiting for ip addr" > /opt/consul/wait && sleep 2; done'
+                        },
+                        '05_chkconfig' : {
                             'command' : 'chkconfig --add consul'
                         },
-                        '05_wait' : {
-                            'command' : 'sleep 10' # try waiting for IP binding to be effective.
+                        '06_cwlogs': {
+                            'command': 'python /opt/cw-logs/awslogs-agent-setup.py -n -r {} -c /opt/cw-logs/cwlogs.cfg'.format(self.region)
                         }
                     },
                     services = {

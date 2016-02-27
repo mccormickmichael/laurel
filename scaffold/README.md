@@ -1,7 +1,31 @@
 # Scaffold
 
+Scripts to stand up and tear down capability-providing stacks
 
-Scripts to stand up and tear down basic stacks.
+### Capabilities
+
+Networks for a VPC
+
+Base services: bastion server and NAT
+
+Consul cluster
+
+Future stacks:
+
+(ELK)
+
+(Zookeeper?)
+
+(Edda?)
+
+(Asgard? Spinnaker? Dependency on Eureka?)
+
+(Jenkins?)
+
+(IAM?)
+
+
+
 
 ### Prerequisites
 
