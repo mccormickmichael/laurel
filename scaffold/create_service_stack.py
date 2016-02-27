@@ -6,6 +6,8 @@ import boto3
 
 from stacks.services import ServicesTemplate
 from stacks import Outputs
+from stacks.creator import Creator
+from stacks.updater import Updater
 import stacks
 
 
@@ -34,10 +36,10 @@ def create_stack(args):
     }
 
     if args.update:
-        updater = stacks.Updater(args.stack_name, template.to_json(), region = args.region)
+        updater = Updater(args.stack_name, template.to_json(), region = args.region)
         return updater.update(stack_parms)
 
-    creator = stacks.Creator(args.stack_name, template.to_json(), region = args.region)
+    creator = Creator(args.stack_name, template.to_json(), region = args.region)
     return creator.create(stack_parms)
 
 def echo_args(args):
