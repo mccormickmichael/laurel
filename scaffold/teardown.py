@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Tear down the scaffolding stack
+# Delete a stack
 
 import sys
 import time

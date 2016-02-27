@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import unittest
+
 from .. import cidr
 
 class TestCidrUtils(unittest.TestCase):

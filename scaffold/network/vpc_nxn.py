@@ -29,9 +29,11 @@
 #   Examples: ('a', 'b', 'e'), ('us-west-2a', 'us-west-2b', 'us-west-2c')
 
 import sys
+
 import troposphere as tp
-from . import cidr, net
-from . import retag, TemplateBuilderBase
+
+from . import cidr
+from ..template import net, retag, TemplateBuilderBase
 
 class NxNVPC(TemplateBuilderBase):
 

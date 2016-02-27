@@ -4,18 +4,21 @@ import argparse
 import glob
 
 import boto3
-from template.consul import ConsulTemplate
-import stacks
-import stacks.outputs as so
+from consul.consul import ConsulTemplate
+
+import stack
+from stack import Outputs
+from stack.creator import Creator
+from stack.updater import Updater
 
 def create_stack(args):
 
     cf = boto3.resource('cloudformation', region_name = args.region)
-    outputs = cf.Stack(args.network_stack_name).outputs
+    outputs = Outputs(cf.Stack(args.network_stack_name))
 
-    vpc_id = so.value(outputs, 'VpcId')
-    vpc_cidr = so.value(outputs, 'VpcCidr')
-    subnet_ids = so.values(outputs, lambda k: 'PrivateSubnet' in k)
+    vpc_id = outputs['VpcId']
+    vpc_cidr = outputs['VpcCidr']
+    subnet_ids = outputs.values(lambda k: 'PrivateSubnet' in k)
 
     echo_args({
         'Stack Name   ' : args.stack_name,
@@ -55,10 +58,10 @@ def create_stack(args):
     }
 
     if args.update:
-        updater = stacks.Updater(args.stack_name, template.to_json(), region = args.region, bucket_name = args.bucket)
+        updater = Updater(args.stack_name, template.to_json(), region = args.region, bucket_name = args.bucket)
         return updater.update(stack_parms)
 
-    creator = stacks.Creator(args.stack_name, template.to_json(), region = args.region, bucket_name = args.bucket)
+    creator = Creator(args.stack_name, template.to_json(), region = args.region, bucket_name = args.bucket)
     return creator.create(stack_parms)
 
 def echo_args(args):

@@ -3,14 +3,14 @@
 # Common functions and builders for VPC Templates
 
 import re
+
 import troposphere as tp
 import troposphere.ec2 as ec2
-from . import cidr
+
 from . import retag
 
 CIDR_ANY = '0.0.0.0/0'
 CIDR_NONE = '0.0.0.0/32'
-
 
 HTTP = 80
 HTTPS = 443

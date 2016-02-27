@@ -32,12 +32,13 @@
 #   ID of the NAT autoscaling group
 
 import sys
+
 import troposphere.ec2 as ec2
 import troposphere.iam as iam
 import troposphere.autoscaling as asg
 import troposphere as tp
-from . import net
-from . import asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION
+
+from ..template import net, asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION
 
 class ServicesTemplate(TemplateBuilderBase):
 

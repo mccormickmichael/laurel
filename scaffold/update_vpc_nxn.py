@@ -1,13 +1,15 @@
 #!/usr/bin/python
 
 import argparse
-from template.vpc_nxn import NxNVPC
-import stacks
+
+from network.vpc_nxn import NxNVPC
+from stack.updater import Updater
+import stack
 
 def update_stack(args):
 
-    build_parms = stacks.get_template_build_parms(args.region, args.stack_name)
-    description = args.desc or stacks.get_stack_description(args.region, args.stack_name)
+    build_parms = stack.get_template_build_parms(args.region, args.stack_name)
+    description = args.desc or stack.get_stack_description(args.region, args.stack_name)
 
     echo(description, build_parms)
     
@@ -18,11 +20,8 @@ def update_stack(args):
                       description=description,
                       **build_parms)
                       
-    updater = stacks.Updater(args.stack_name, template.to_json(), region=args.region)
+    updater = Updater(args.stack_name, template.to_json(), region=args.region)
     return updater.update({})
-
-    
-    return None
 
 
 def echo(description, build_parms):

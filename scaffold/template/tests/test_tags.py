@@ -1,7 +1,9 @@
 #!/usr/bin/python
 
 import unittest
+
 from troposphere import Tags
+
 from .. import retag, asgtag, mergetag
 
 class test_tags(unittest.TestCase):

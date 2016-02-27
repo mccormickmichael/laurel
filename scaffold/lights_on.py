@@ -3,7 +3,7 @@
 import argparse
 import boto3
 import json
-import stacks.outputs as so
+from stacks.outputs import Outputs
 
 def lights_on(args):
 
@@ -13,18 +13,18 @@ def lights_on(args):
     resources = cf_c.get_template(StackName = args.stack_name)['TemplateBody']['Resources']
     asg_mins = {k : v['Properties']['MinSize'] for k, v in resources.items() if k.endswith('ASG')}
 
-    asg_ids = so.dict(cf.Stack(args.stack_name).outputs, lambda k: k.endswith('ASG'))
+    outputs = Outputs(cf.Stack(args.stack_name))
 
     if args.dry_run:
         print 'Pretending to reset asg min values because dry run flag is set'
         return asg_mins
     
     autoscale = boto3.client('autoscaling', region_name = args.region)
-    for logical, physical in asg_ids.iteritems():
+    for logical_asg in outputs.keys(lambda k: k.endswith('ASG')):
         autoscale.update_auto_scaling_group(
-            AutoScalingGroupName = physical,
-            MinSize = asg_mins[logical],
-            DesiredCapacity = asg_mins[logical])
+            AutoScalingGroupName = outputs[logical_asg],
+            MinSize = asg_mins[logical_asg],
+            DesiredCapacity = asg_mins[logical_asg])
 
     return asg_mins
 

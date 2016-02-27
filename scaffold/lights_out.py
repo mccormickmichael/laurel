@@ -2,14 +2,15 @@
 
 import argparse
 import boto3
-import stacks.outputs as so
+from stacks.outputs import Outputs
 
 def lights_out(args):
 
     cf = boto3.resource('cloudformation', region_name = args.region)
-    outputs = cf.Stack(args.stack_name).outputs
-    asgs = so.values(outputs, lambda k: k.endswith('ASG'))
 
+    outputs = Outputs(cf.Stack(args.stack_name))
+    asgs = outputs.values(lambda k: k.endswith('ASG'))
+    
     if args.dry_run:
         print 'Pretending to scale asgs to zero becaute dry-run flag is set'
         return asgs
