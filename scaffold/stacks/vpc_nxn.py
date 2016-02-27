@@ -33,7 +33,7 @@ import sys
 import troposphere as tp
 
 from . import cidr
-from ..template import net, retag, TemplateBuilderBase
+from .template import net, retag, TemplateBuilderBase
 
 class NxNVPC(TemplateBuilderBase):
 

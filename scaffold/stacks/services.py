@@ -38,7 +38,7 @@ import troposphere.iam as iam
 import troposphere.autoscaling as asg
 import troposphere as tp
 
-from ..template import net, asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION
+from .template import net, asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION
 
 class ServicesTemplate(TemplateBuilderBase):
 

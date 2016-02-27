@@ -2,16 +2,12 @@
 
 import argparse
 
-from template.services import ServicesTemplate
-import stacks.outputs as so
-import stacks
 import boto3
 
-def output_matching(outputs, key):
-    return [o['OutputValue'] for o in outputs if o['OutputKey'] == key][0]
+from stacks.services import ServicesTemplate
+from stacks import Outputs
+import stacks
 
-def outputs_containing(outputs, key_fragment):
-    return [o['OutputValue'] for o in outputs if key_fragment in o['OutputKey']]
 
 def create_stack(args):
     if args.dry_run:
@@ -19,12 +15,12 @@ def create_stack(args):
         return None
 
     cf = boto3.resource('cloudformation', region_name = args.region)
-    outputs = cf.Stack(args.network_stack_name).outputs
+    outputs = Outputs(cf.Stack(args.network_stack_name))
 
-    vpc_id = so.value(outputs, 'VpcId')
-    vpc_cidr = so.value(outputs, 'VpcCidr')
-    priv_rt_id = so.value(outputs, 'PrivateRT')
-    pub_subnet_ids = so.values(outputs, lambda k: 'PublicSubnet' in k)
+    vpc_id = outputs['VpcId']
+    vpc_cidr = outputs['VpcCidr']
+    priv_rt_id = outputs['PrivateRT']
+    pub_subnet_ids = outputs.values(lambda k: 'PublicSubnet' in k)
 
     template = ServicesTemplate(args.stack_name,
                                 description = args.desc,

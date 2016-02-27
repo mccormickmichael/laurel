@@ -4,12 +4,12 @@ import argparse
 import glob
 
 import boto3
-from consul.consul import ConsulTemplate
 
-import stack
-from stack import Outputs
-from stack.creator import Creator
-from stack.updater import Updater
+import stacks
+from stacks.consul import ConsulTemplate
+from stacks import Outputs
+from stacks.creator import Creator
+from stacks.updater import Updater
 
 def create_stack(args):
 

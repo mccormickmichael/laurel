@@ -2,8 +2,8 @@
 
 import argparse
 
-from network.vpc_nxn import NxNVPC
-from stack.creator import Creator
+from stacks.vpc_nxn import NxNVPC
+from stacks.creator import Creator
 
 def create_stack(args):
     if args.dry_run:

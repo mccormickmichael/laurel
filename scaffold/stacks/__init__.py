@@ -5,7 +5,7 @@ import json
 
 import boto3
 
-from .. import template
+from .template import BUILD_PARMS_NAME
 
 
 DEFAULT_REGION = 'us-west-2'
@@ -82,7 +82,7 @@ def get_template_metadata(region, stack_name):
 
 
 def get_template_build_parms(region, stack_name):
-    return get_template_metadata(region, stack_name)[template.BUILD_PARMS_NAME]
+    return get_template_metadata(region, stack_name)[BUILD_PARMS_NAME]
 
 
 def get_stack_description(region, stack_name):

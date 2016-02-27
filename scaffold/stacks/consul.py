@@ -32,7 +32,7 @@ import troposphere.autoscaling as asg
 import troposphere.cloudformation as cf
 import troposphere as tp
 
-from ..template import net, asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION, REF_STACK_NAME
+from .template import net, asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION, REF_STACK_NAME
 
 class ConsulTemplate(TemplateBuilderBase):
 
