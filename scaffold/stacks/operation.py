@@ -4,6 +4,8 @@ import time
 
 import boto3
 
+from . import Parameters
+
 class StackOperation(object):
 
     DEFAULT_REGION = 'us-west-2'
@@ -47,6 +49,42 @@ class StackOperation(object):
         return StackOperation._to_s3_url(self._bucket_name, key_name)
 
 
+class Creator(StackOperation):
+    def __init__(self, stack_name, template_body, bucket_name=StackOperation.BUCKET_NAME, region=StackOperation.DEFAULT_REGION):
+        super(Creator, self).__init__(stack_name, template_body, bucket_name, region)
 
+    def create(self, stack_params, cb=StackOperation._printing_cb):
+        cf = boto3.resource('cloudformation', region_name=self._region)
+        
+        stack = cf.create_stack(
+            StackName = self._stack_name,
+            TemplateURL = self._upload_template(),
+            Parameters = StackOperation._build_stack_params(stack_params),
+            Capabilities = ['CAPABILITY_IAM'],
+            TimeoutInMinutes = 10,
+            OnFailure = 'ROLLBACK')
+
+        return self._monitor_stack(stack, ['CREATE_IN_PROGRESS'], cb)
+
+    
+class Updater(StackOperation):
+
+    def __init__(self, stack_name, template_body=None, bucket_name=StackOperation.BUCKET_NAME, region=StackOperation.DEFAULT_REGION):
+        super(Updater, self).__init__(stack_name, template_body, bucket_name, region)
+
+    def update(self, stack_params, cb=StackOperation._printing_cb):
+        cf = boto3.resource('cloudformation', region_name=self._region)
+        stack = cf.Stack(self._stack_name)
+        parameters = Parameters(stack=stack, parms=stack_parms)
+        if self._template_body is None:
+            stack.update(UsePreviousTemplate=True,
+                         Parameters=parameters.for_stack(),
+                         Capabilities=['CAPABILITY_IAM'])
+        else:
+            stack.update(TemplateURL=self._upload_template(),
+                         Parameters=parameters.for_stack(),
+                         Capabilities=['CAPABILITY_IAM'])
+
+        return StackOperation._monitor_stack(stack, ['UPDATE_IN_PROGRESS', 'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS'], cb)
 
 

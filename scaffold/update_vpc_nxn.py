@@ -4,7 +4,7 @@ import argparse
 
 from stacks.vpc_nxn import NxNVPC
 import stacks
-from stacks.updater import Updater
+from stacks.operation import Updater
 
 
 def update_stack(args):

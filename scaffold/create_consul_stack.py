@@ -8,8 +8,8 @@ import boto3
 import stacks
 from stacks.consul import ConsulTemplate
 from stacks import Outputs
-from stacks.creator import Creator
-from stacks.updater import Updater
+from stacks.operation import Creator, Updater
+
 
 def create_stack(args):
 

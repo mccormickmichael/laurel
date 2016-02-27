@@ -6,8 +6,7 @@ import boto3
 
 from stacks.services import ServicesTemplate
 from stacks import Outputs
-from stacks.creator import Creator
-from stacks.updater import Updater
+from stacks.operation import Creator, Updater
 import stacks
 
 

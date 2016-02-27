@@ -3,7 +3,7 @@
 import argparse
 
 from stacks.vpc_nxn import NxNVPC
-from stacks.creator import Creator
+from stacks.operation import Creator
 
 def create_stack(args):
     if args.dry_run:

@@ -18,6 +18,7 @@ def _identity(k):
 def _parse_stack_parms(stack_parms):
     return {p['ParameterKey'] : p['ParameterValue'] for p in stack_parms}
 
+
 class Parameters(object):
 
     def __init__(self, stack=None, parms={}):
@@ -45,6 +46,7 @@ class Parameters(object):
     def __iter__(self):
         return iter(self._parms)
 
+    
 class Outputs(object):
     def __init__(self, boto3_stack):
         self._outputs = boto3_stack.outputs
