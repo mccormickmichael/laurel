@@ -30,6 +30,7 @@ import troposphere.ec2 as ec2
 import troposphere.iam as iam
 import troposphere.autoscaling as asg
 import troposphere.cloudformation as cf
+import troposphere.logs as logs
 import troposphere as tp
 
 from .template import net, asgtag, TemplateBuilderBase, AMI_REGION_MAP_NAME, REF_REGION, REF_STACK_NAME
@@ -72,6 +73,8 @@ class ConsulTemplate(TemplateBuilderBase):
             self.create_asg(i, sg, iam_profile, self.subnet_ids[i % len(self.subnet_ids)], self.enis[i]) for i in range(0, cluster_size)
         ]
 
+        self.create_logstreams()
+
     def create_parameters(self):
         self.add_parameter(tp.Parameter(self.CONSUL_KEY_PARAM_NAME, Type = 'String'))
 
@@ -110,7 +113,7 @@ class ConsulTemplate(TemplateBuilderBase):
                                      InstanceMonitoring = False,
                                      AssociatePublicIpAddress = False,
                                      UserData = self._create_consul_userdata(eni, lc_name),
-                                     Metadata = self._create_consul_metadata(eni))
+                                     Metadata = self._create_consul_metadata(eni, index))
         group = asg.AutoScalingGroup('Consul{}ASG'.format(index),
                                      MinSize = 1, MaxSize = 1,
                                      LaunchConfigurationName = tp.Ref(lc),
@@ -119,6 +122,11 @@ class ConsulTemplate(TemplateBuilderBase):
         self.add_resources(lc, group)
         self.add_output(tp.Output(group.name, Value = tp.Ref(group)))
         return group
+
+    def create_logstreams(self):
+        group = logs.LogGroup('ConsulLogGroup',
+                              RetentionInDays=3)
+        self.add_resources(group)
 
 
     def create_iam_profile(self):
@@ -144,7 +152,7 @@ class ConsulTemplate(TemplateBuilderBase):
                                         'Action': ['s3:Get*']
                                     }, {
                                         'Effect': 'Allow',
-                                        'Resource': 'arn:aws:logs:*:*:*', # TODO: look at CW Logs ARN and restrict further
+                                        'Resource': 'arn:aws:logs:{}:*:*'.format(self.region),
                                         'Action': [
                                             'logs:CreateLogGroup',
                                             'logs:CreateLogStream',
@@ -170,8 +178,6 @@ class ConsulTemplate(TemplateBuilderBase):
             'ENI_ID=', tp.Ref(eni), '\n',
             # TODO: do we need a sleep/check loop here? It hasn't failed so far
             'aws ec2 attach-network-interface --instance-id $INS_ID --device-index 1 --network-interface-id $ENI_ID --region $REGION\n',
-#            'mkdir /opt/consul && echo {} > /opt/consul/eni && chmod 755 /opt/consul/eni\n',
-#            "CONSUL_IP=ifconfig eth1 | awk '/inet addr/{print substr($2,6)}'\n",
             '/opt/aws/bin/cfn-init -v ',
             '  --stack ', REF_STACK_NAME,
             '  --resource ', resource_name,
@@ -180,7 +186,7 @@ class ConsulTemplate(TemplateBuilderBase):
         ]
         return tp.Base64(tp.Join('', startup)) # TODO: There has GOT to be a better way to do userdata.
 
-    def _create_consul_metadata(self, eni):
+    def _create_consul_metadata(self, eni, index):
         consul_dir = '/opt/consul'
         agent_dir = '{}/agent'.format(consul_dir)
         config_dir = '{}/config'.format(consul_dir)
@@ -244,22 +250,25 @@ class ConsulTemplate(TemplateBuilderBase):
                         }
                     },
                     commands = {
-                        '01_dirs' : {
+                        '10_dirs' : {
                             'command' : 'mkdir -p {}'.format(data_dir) # also -m 755?
                         },
-                        '02_mode' : {
+                        '20_mode' : {
                             'command' : 'chmod 755 {}/consul'.format(agent_dir)
                         },
-                        '03_config' : {
+                        '30_config' : {
                             'command' : 'cp {0} {0}.orig && python {2} {0} {1}'.format(config_file, self.region, config_py) # blech.
                         },
-                        '04_wait' : {
+                        '40_wait' : {
                             'command' : 'while [ `ifconfig | grep "inet addr" | wc -l` -lt 3 ]; do echo "waiting for ip addr" > /opt/consul/wait && sleep 2; done'
                         },
-                        '05_chkconfig' : {
+                        '50_chkconfig' : {
                             'command' : 'chkconfig --add consul'
                         },
-                        '06_cwlogs': {
+                        '60_cwlogs_config': {
+                            'command': "sed -i.bak 's/xSTREAM_NAMEx/consul_server_{}/' /opt/cw-logs/cwlogs.cfg".format(index)
+                        },
+                        '61_cwlogs': {
                             'command': 'python /opt/cw-logs/awslogs-agent-setup.py -n -r {} -c /opt/cw-logs/cwlogs.cfg'.format(self.region)
                         }
                     },
