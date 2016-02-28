@@ -1,8 +1,11 @@
 #!/usr/bin/python
 
 import argparse
+
 import boto3
-from stacks.outputs import Outputs
+
+from stacks import Outputs
+
 
 def lights_out(args):
 
@@ -24,10 +27,12 @@ def lights_out(args):
 
     return asgs
 
+
 def echo_args(args):
     for k, v in vars(args).iteritems():
         print '{} : {}'.format(k, v)
 
+        
 def get_args():
     ap = argparse.ArgumentParser(description = 'Scale all ASGs in a stack down to zero')
     ap.add_argument('stack_name', help='Name of the stack')
@@ -35,6 +40,7 @@ def get_args():
     ap.add_argument('-r', '--region', default = 'us-west-2', help = 'AWS Region in which to run')
     
     return ap.parse_args()
+
 
 if __name__ == '__main__':
     args = get_args()

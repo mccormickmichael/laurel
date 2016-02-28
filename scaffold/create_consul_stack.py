@@ -16,6 +16,13 @@ def create_stack(args):
     cf = boto3.resource('cloudformation', region_name = args.region)
     outputs = Outputs(cf.Stack(args.network_stack_name))
 
+    bucket = args.bucket
+    cluster_size = args.cluster_size
+    description = args.desc
+    key_name = args.key
+
+    # TODO: If update, replace above values from appropriate locations if above values are None
+    
     vpc_id = outputs['VpcId']
     vpc_cidr = outputs['VpcCidr']
     subnet_ids = outputs.values(lambda k: 'PrivateSubnet' in k)
@@ -23,12 +30,12 @@ def create_stack(args):
     echo_args({
         'Stack Name   ' : args.stack_name,
         'Region       ' : args.region,
-        'Bucket       ' : args.bucket,
-        'Description  ' : args.desc,
+        'Bucket       ' : bucket,
+        'Description  ' : description,
         'VPC ID       ' : vpc_id,
         'VPC CIDR     ' : vpc_cidr,
         'Subnets      ' : subnet_ids,
-        'Cluster Size ' : args.cluster_size,
+        'Cluster Size ' : cluster_size,
         'Update       ' : args.update
     })
 
@@ -47,11 +54,11 @@ def create_stack(args):
     template = ConsulTemplate(args.stack_name,
                               region = args.region,
                               bucket = args.bucket,
-                              description = args.desc,
+                              description = description,
                               vpc_id = vpc_id,
                               vpc_cidr = vpc_cidr,
                               subnet_ids = subnet_ids,
-                              cluster_size = args.cluster_size)
+                              cluster_size = cluster_size)
 
     stack_parms = {
         ConsulTemplate.CONSUL_KEY_PARAM_NAME : args.key

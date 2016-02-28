@@ -72,7 +72,7 @@ class Updater(StackOperation):
     def __init__(self, stack_name, template_body=None, bucket_name=StackOperation.BUCKET_NAME, region=StackOperation.DEFAULT_REGION):
         super(Updater, self).__init__(stack_name, template_body, bucket_name, region)
 
-    def update(self, stack_params, cb=StackOperation._printing_cb):
+    def update(self, stack_parms, cb=StackOperation._printing_cb):
         cf = boto3.resource('cloudformation', region_name=self._region)
         stack = cf.Stack(self._stack_name)
         parameters = Parameters(stack=stack, parms=stack_parms)
