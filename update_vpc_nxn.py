@@ -19,7 +19,7 @@ def update_stack(args):
     template = NxNVPC(
         args.stack_name,
         region=session.region_name,
-        description=Summary.description() if args.desc is None else args.desc,
+        description=summary.description() if args.desc is None else args.desc,
         vpc_cidr=build_parms.vpc_cidr if args.cidr is None else args.cidr,
         availability_zones=build_parms.availability_zones if args.availability_zones is None else args.availability_zones,
         pub_size=build_parms.pub_size if args.pub_size is None else args.pub_size,
