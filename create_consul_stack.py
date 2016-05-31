@@ -112,8 +112,7 @@ if __name__ == '__main__':
     args = get_args()
     results = create_stack(args)
     if args.dry_run:
-        pass
-        # print results.template
+        print results.template
     else:
         print 'ID:     ', results.stack_id
         print 'STATUS: ', results.stack_status

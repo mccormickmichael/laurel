@@ -68,6 +68,7 @@ class ConsulTemplate(TemplateBuilder):
 
         sg = self.create_sg()
         iam_profile = self.create_iam_profile()
+        self.create_logstreams()
 
         self.enis = [
             self.create_eni(i, sg, self.subnet_ids[i % len(self.subnet_ids)]) for i in range(0, self.cluster_size)
@@ -75,8 +76,6 @@ class ConsulTemplate(TemplateBuilder):
         self.asgs = [
             self.create_asg(i, sg, iam_profile, self.subnet_ids[i % len(self.subnet_ids)], self.enis[i]) for i in range(self.cluster_size)
         ]
-
-        self.create_logstreams()
 
     def create_parameters(self):
         self.add_parameter(tp.Parameter(self.CONSUL_KEY_PARAM_NAME, Type='String'))
@@ -121,15 +120,15 @@ class ConsulTemplate(TemplateBuilder):
                                      MinSize=1, MaxSize=1,
                                      LaunchConfigurationName=tp.Ref(lc),
                                      VPCZoneIdentifier=[subnet_id],
-                                     Tags=asgtag(self._rename('{} Consul Server-' + str(index))))
+                                     Tags=asgtag(self._rename('{} Server-' + str(index))))
         self.add_resources(lc, group)
         self.add_output(tp.Output(group.name, Value=tp.Ref(group)))
         return group
 
     def create_logstreams(self):
-        group = logs.LogGroup('ConsulLogGroup',
-                              RetentionInDays=3)
-        self.add_resources(group)
+        self.log_group = logs.LogGroup('ConsulLogGroup',
+                                       RetentionInDays=3)
+        self.add_resources(self.log_group)
 
     def create_iam_profile(self):
         role = iam.Role('ConsulInstanceRole',
@@ -245,6 +244,16 @@ class ConsulTemplate(TemplateBuilder):
                             'group': 'root'
                         },
                         '/opt/cw-logs/cwlogs.cfg': {
+                            'content': tp.Join('', [
+                                '[general]\n',
+                                'state_file = /var/awslogs/state/agent-state\n',
+                                '\n',
+                                '[/var/log/consul]\n',
+                                'file = /var/log/consul\n',
+                                'datetime_format = %b %d %H:%M:%S\n',
+                                'log_group_name = ', tp.Ref(self.log_group), '\n',
+                                'log_stream_name = consul_server_{}\n'.format(index),
+                                ]),
                             'source': '{}/cwlogs.cfg'.format(source_prefix),
                             'mode': '000755',
                             'owner': 'root',
@@ -259,7 +268,7 @@ class ConsulTemplate(TemplateBuilder):
                             'command': 'chmod 755 {}/consul'.format(agent_dir)
                         },
                         '30_config': {
-                            'command': 'cp {0} {0}.orig && python {2} {0} {1}'.format(config_file, self.region, config_py)  # blech.
+                            'command': 'cp {0} {0}.orig && python {1} {0}'.format(config_file, config_py)  # blech.
                         },
                         '40_wait': {
                             'command': 'while [ `ifconfig | grep "inet addr" | wc -l` -lt 3 ]; do echo "waiting for ip addr" > /opt/consul/wait && sleep 2; done'
@@ -267,10 +276,7 @@ class ConsulTemplate(TemplateBuilder):
                         '50_chkconfig': {
                             'command': 'chkconfig --add consul'
                         },
-                        '60_cwlogs_config': {
-                            'command': "sed -i.bak 's/xSTREAM_NAMEx/consul_server_{}/' /opt/cw-logs/cwlogs.cfg".format(index)
-                        },
-                        '61_cwlogs': {
+                        '60_cwlogs': {
                             'command': 'python /opt/cw-logs/awslogs-agent-setup.py -n -r {} -c /opt/cw-logs/cwlogs.cfg'.format(self.region)
                         }
                     },
