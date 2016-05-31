@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import argparse
-import glob
 import inspect
 import os
 
