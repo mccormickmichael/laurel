@@ -7,6 +7,10 @@
 #   Name of the stack, of course. Required.
 # - description
 #   Description of the stack. Please provide one.
+# - region
+#   The AWS region in which this template will be executed
+# - bucket
+#   The S3 bucket to be used for uploading server configuration files
 # - vpc_id
 #   ID of the VPC in which this stack is built
 # - vpc_cidr
@@ -25,6 +29,10 @@
 #
 # Stack Outputs:
 #
+# - Consul{N}ASG
+#   ID of the autoscaling group controlling the Nth cluster member
+# - Consul{N}ENI
+#   ID of the elastic network interface attached to the Nth cluster member
 
 import troposphere.ec2 as ec2
 import troposphere.iam as iam
