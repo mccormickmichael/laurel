@@ -63,7 +63,7 @@ class StackOperation(object):
             OnFailure='ROLLBACK')
         # TODO: Add notificationArn and Stack Tags
 
-        _monitor_stack(stack, ['CREATE_IN_PROGRESS'], progress_callback)
+        _monitor_stack(stack, ['CREATE_IN_PROGRESS', 'ROLLBACK_IN_PROGRESS'], progress_callback)
         return stack
 
     def update(self, updated_stack_params={}, progress_callback=_printing_cb):
@@ -76,7 +76,9 @@ class StackOperation(object):
                      Capabilities=['CAPABILITY_IAM'])
         # TODO: Add notificationArn and Stack Tags
 
-        _monitor_stack(stack, ['UPDATE_IN_PROGRESS', 'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS'], progress_callback)
+        _monitor_stack(stack, ['UPDATE_IN_PROGRESS', 'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS',
+                               'UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS',
+                               'UPDATE_ROLLBACK_IN_PROGRESS'], progress_callback)
         return stack
 
     def _upload_template(self, template_body):

@@ -91,23 +91,23 @@ class ConsulTemplate(TemplateBuilder):
             self.create_ui_cluster()
 
     def create_server_cluster(self):
-        sg = self.create_server_sg()
-        iam_profile = self.create_server_iam_profile()
+        self.server_sg = self.create_server_sg()
+        self.iam_profile = self.create_server_iam_profile()
         server_subnet_len = len(self.server_subnet_ids)
         self.server_enis = [
-            self.create_server_eni(i, sg, self.server_subnet_ids[i % server_subnet_len])
+            self.create_server_eni(i, self.server_sg, self.server_subnet_ids[i % server_subnet_len])
             for i in range(self.server_cluster_size)
         ]
         self.server_asgs = [
-            self.create_server_asg(i, sg, iam_profile, self.server_subnet_ids[i % server_subnet_len], self.server_enis[i])
+            self.create_server_asg(i, self.server_sg, self.iam_profile,
+                                   self.server_subnet_ids[i % server_subnet_len], self.server_enis[i])
             for i in range(self.server_cluster_size)
         ]
         self.server_asgs[0].Metadata = self._create_server_metadata()
 
     def create_ui_cluster(self):
-        sg = self.create_ui_sg()
-        iam_profile = self.create_ui_iam_profile()
-        self.ui_asg = self.create_ui_asg(sg, iam_profile)
+        self.ui_sg = self.create_ui_sg()
+        self.ui_asg = self.create_ui_asg(self.ui_sg, self.iam_profile)
 
     def create_parameters(self):
         self.add_parameter(tp.Parameter(self.CONSUL_KEY_PARAM_NAME, Type='String'))
@@ -156,14 +156,90 @@ class ConsulTemplate(TemplateBuilder):
         self.add_output(tp.Output(group.name, Value=tp.Ref(group)))
         return group
 
-    def create_ui_asg(self, security_group, iam_profile):
-        return None
-
     def _server_lc_name(self, index):
         return 'Consul{}LC'.format(index)
 
     def _server_asg_name(self, index):
         return 'Consul{}ASG'.format(index)
+
+    def create_ui_sg(self):
+        ingress_rules = [
+            net.sg_rule(net.CIDR_ANY, port, net.TCP) for port in [net.HTTP, net.HTTPS]
+        ] + [
+            net.sg_rule(self.vpc_cidr, net.SSH, net.TCP)
+        ]
+        # egress_rules = []  # TODO: egress should only talk to private subnets over specified ports,
+        #                            and to everyone over ephemeral ports
+        sg = ec2.SecurityGroup('ConsulUISecurityGroup',
+                               GroupDescription='Consul UI Server Security Group',
+                               SecurityGroupIngress=ingress_rules,
+                               VpcId=self.vpc_id,
+                               Tags=self.default_tags)
+        self.add_resource(sg)
+        return sg
+
+    def create_ui_asg(self, security_group, iam_profile):
+        lc = asg.LaunchConfiguration('ConsulUILC',
+                                     ImageId=tp.FindInMap(AMI_REGION_MAP_NAME, self.region, 'GENERAL'),
+                                     InstanceType=self.ui_instance_type,
+                                     SecurityGroups=[tp.Ref(security_group)],
+                                     KeyName=tp.Ref(self.CONSUL_KEY_PARAM_NAME),
+                                     IamInstanceProfile=tp.Ref(iam_profile),
+                                     InstanceMonitoring=False,
+                                     AssociatePublicIpAddress=True,  # TODO: Do we need this if we are behind an ELB?
+                                     UserData=self._create_ui_userdata())
+        group = asg.AutoScalingGroup('ConsulUIASG',
+                                     MinSize=1, MaxSize=2,
+                                     LaunchConfigurationName=tp.Ref(lc),
+                                     Cooldown=600,
+                                     HealthCheckGracePeriod=600,
+                                     HealthCheckType='EC2',  # TODO: switch to ELB
+                                     TerminationPolicies=['OldestLaunchConfiguration', 'OldestInstance'],
+                                     # LoadBalancerNames=...  # TODO
+                                     VPCZoneIdentifier=self.ui_subnet_ids,
+                                     Tags=asgtag(self.default_tags))
+        scale_out = asg.ScalingPolicy('ConsulUIScaleOutPolicy',
+                                      AutoScalingGroupName=tp.Ref(group),
+                                      AdjustmentType='ChangeInCapacity',
+                                      Cooldown=600,
+                                      PolicyType='SimpleScaling',
+                                      ScalingAdjustment=1)
+        scale_in = asg.ScalingPolicy('ConsulUIScaleInPolicy',
+                                     AutoScalingGroupName=tp.Ref(group),
+                                     AdjustmentType='ChangeInCapacity',
+                                     Cooldown=600,
+                                     PolicyType='SimpleScaling',
+                                     ScalingAdjustment=-1)
+        # TODO: better metrics, like response time or something
+        scale_out_alarm = cw.Alarm('ConsulUIScaleOutAlarm',
+                                   ActionsEnabled=True,
+                                   AlarmActions=[tp.Ref(scale_out)],
+                                   AlarmDescription='Scale out ConsulUIASG when instance CPU exceeds 50% for 15 minutes',
+                                   ComparisonOperator='GreaterThanThreshold',
+                                   Dimensions=[cw.MetricDimension(Name='AutoScalingGroupName', Value=tp.Ref(group))],
+                                   EvaluationPeriods=3,
+                                   MetricName='CPUUtilization',
+                                   Namespace='AWS/EC2',
+                                   Period=300,
+                                   Statistic='Average',
+                                   Threshold='50',
+                                   Unit='Percent')
+        scale_in_alarm = cw.Alarm('ConsulUIScaleInAlarm',
+                                  ActionsEnabled=True,
+                                  AlarmActions=[tp.Ref(scale_in)],
+                                  AlarmDescription='Scale in ConsulUIASG when instance CPU < 25% for 15 minutes',
+                                  ComparisonOperator='LessThanThreshold',
+                                  Dimensions=[cw.MetricDimension(Name='AutoScalingGroupName', Value=tp.Ref(group))],
+                                  EvaluationPeriods=3,
+                                  MetricName='CPUUtilization',
+                                  Namespace='AWS/EC2',
+                                  Period=300,
+                                  Statistic='Average',
+                                  Threshold='25',
+                                  Unit='Percent')
+        self.add_resources(lc, group, scale_out, scale_in, scale_out_alarm, scale_in_alarm)
+        self.add_output(tp.Output(group.name, Value=tp.Ref(group)))
+        return group
 
     def create_logstreams(self):
         self.log_group = logs.LogGroup('ConsulLogGroup',
@@ -186,7 +262,7 @@ class ConsulTemplate(TemplateBuilder):
                                     'Statement': [{
                                         'Effect': 'Allow',
                                         'Resource': ['*'],
-                                        'Action': ['ec2:Attach*', 'ec2:Describe*', 's3:*']
+                                        'Action': ['ec2:Attach*', 'ec2:Describe*']
                                     }, {
                                         'Effect': 'Allow',
                                         'Resource': 'arn:aws:s3:::{}/*'.format(self.bucket),
@@ -226,138 +302,221 @@ class ConsulTemplate(TemplateBuilder):
             '/opt/aws/bin/cfn-init -v ',
             '  --stack ', REF_STACK_NAME,
             '  --resource ', resource_name,
-            '  --configsets install',
+            '  --configsets install_server',
+            '  --region $REGION\n',
+        ]
+        return tp.Base64(tp.Join('', startup))  # TODO: There has GOT to be a better way to do userdata.
+
+    def _create_ui_userdata(self):
+        resource_name = self._server_asg_name(0)
+        startup = [
+            '#!/bin/bash\n',
+            'yum update -y && yum install -y yum-cron && chkconfig yum-cron on\n',
+            'REGION=', self.region, '\n',
+            'mkdir -p -m 0755 /opt/consul\n'
+            '/opt/aws/bin/cfn-init -v ',
+            '  --stack ', REF_STACK_NAME,
+            '  --resource ', resource_name,
+            '  --configsets install_ui',
             '  --region $REGION\n',
         ]
         return tp.Base64(tp.Join('', startup))  # TODO: There has GOT to be a better way to do userdata.
 
     def _create_server_metadata(self):
         consul_dir = '/opt/consul'
-        agent_dir = '{}/agent'.format(consul_dir)
-        ui_dir = '{}/ui'.format(consul_dir)
-        config_dir = '{}/config'.format(consul_dir)
-        data_dir = '{}/data'.format(consul_dir)
-
-        server_config_file = '{}/config.json'.format(config_dir)
-        # ui_config_file = '{}/config_ui.json'.format(config_dir) ??
-        config_server_py = '{}/config_server.py'.format(consul_dir)
-        # config_ui_py = '{}/config_ui.py'.format(consul_dir)
-
-        cwlogs_config_file = '/opt/cw-logs/cwlogs.cfg'
-        config_cwlogs_py = '/opt/cw-logs/cwlogs.py'
-
-        source_prefix = 'http://{}.s3.amazonaws.com/scaffold/consul'.format(self.bucket)
 
         return cf.Metadata(
             cf.Init(
-                cf.InitConfigSets(install=['install']),
-                install=cf.InitConfig(
-                    packages={
-                        'python': {
-                            'boto3': []
-                        }
-                    },
-                    # groups={}, # do we need a consul group?
-                    # users={}, # do we need a consul user?
-                    sources={
-                        agent_dir: 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_linux_amd64.zip',
-                        ui_dir: 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_web_ui.zip'
-                    },
-                    files={
-                        # See https://www.consul.io/docs/agent/options.html#configuration_files
-                        server_config_file: {
-                            'content': {
-                                'datacenter': self.region,
-                                'data_dir': data_dir,
-                                'log_level': 'INFO',
-                                'server': True,
-                                'bootstrap_expect': self.server_cluster_size,
-                                'bind_addr': 'REPLACE AT RUNTIME',
-                                'retry_join': 'REPLACE AT RUNTIME',
-                                '_eni_ids': [tp.Ref(e) for e in self.server_enis]  # used for runtime resolution
-                            },
-                            'mode': '000755',
-                            'owner': 'root',  # could be consul user?
-                            'group': 'root'   # could be consul group?
-                        },
-                        config_server_py: {
-                            'source': '{}/config_server.py'.format(source_prefix),
-                            'mode': '000755',
-                            'owner': 'root',
-                            'group': 'root'
-                        },
-                        '/etc/init.d/consul': {
-                            'source': '{}/consul.service'.format(source_prefix),
-                            'mode': '000755',
-                            'owner': 'root',
-                            'group': 'root'
-                        },
-                        '/opt/cw-logs/awslogs-agent-setup.py': {
-                            'source': 'https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py',
-                            'mode': '000755',
-                            'owner': 'root',
-                            'group': 'root'
-                        },
-                        cwlogs_config_file: {
-                            'content': tp.Join('', [
-                                '[general]\n',
-                                'state_file = /var/awslogs/state/agent-state\n',
-                                '\n',
-                                '[consul_agent]\n',
-                                'file = /var/log/consul\n',
-                                'datetime_format = %b %d %H:%M:%S\n',
-                                'log_group_name = ', tp.Ref(self.log_group), '\n',
-                                'log_stream_name = REPLACE_AT_RUNTIME\n'
-                                ]),
-                            'source': '{}/cwlogs.cfg'.format(source_prefix),
-                            'mode': '000755',
-                            'owner': 'root',
-                            'group': 'root'
-                        },
-                        config_cwlogs_py: {
-                            'source': '{}/config_cwlogs.py'.format(source_prefix),
-                            'mode': '000755',
-                            'owner': 'root',
-                            'group': 'root'
-                        }
-                    },
-                    commands={
-                        '10_dirs': {
-                            'command': 'mkdir -m 0755 -p {}'.format(data_dir)
-                        },
-                        '20_mode': {
-                            'command': 'chmod 755 {}/consul'.format(agent_dir)
-                        },
-                        '30_consul_config': {
-                            'command': 'python {0} {1}'.format(config_server_py, server_config_file)
-                        },
-                        '31_cwlogs_config': {
-                            'command': 'python {0} {1}'.format(config_cwlogs_py, cwlogs_config_file)
-                        },
-                        '40_wait': {
-                            'command': 'while [ `ifconfig | grep "inet addr" | wc -l` -lt 3 ]; do echo "waiting for ip addr" > /opt/consul/wait && sleep 2; done'
-                        },
-                        '50_chkconfig': {
-                            'command': 'chkconfig --add consul'
-                        },
-                        '60_cwlogs': {
-                            'command': 'python /opt/cw-logs/awslogs-agent-setup.py -n -r {} -c /opt/cw-logs/cwlogs.cfg'.format(self.region)
-                        }
-                    },
-                    services={
-                        'sysvinit': {
-                            'consul': {
-                                'enabled': 'true',
-                                'ensureRunning': 'true',
-                                'files': [server_config_file],
-                                'sources': [agent_dir],
-                                'commands': 'config'
-                            }
-                        },
-                        # dnsmasq?
+                cf.InitConfigSets(
+                    install_server=['install', 'config_server', 'startup'],
+                    install_ui=['install', 'config_ui', 'startup']),
+                install=self._create_install_initconfig(),
+                startup=self._create_startup_initconfig(),
+                config_server=self._create_config_server_initconfig(),
+                config_ui=self._create_config_ui_initconfig()
+            ))
+
+    def _get_consul_dir(self):
+        return '/opt/consul'
+
+    def _get_config_consul_py(self):
+        return '{}/config_consul.py'.format(self._get_consul_dir())
+
+    def _get_consul_config_file(self):
+        return '{}/config/config.json'.format(self._get_consul_dir())
+
+    def _get_consul_data_dir(self):
+        return '{}/data'.format(self._get_consul_dir())
+
+    def _get_consul_agent_dir(self):
+        return '{}/agent'.format(self._get_consul_dir())
+
+    def _get_consul_ui_dir(self):
+        return '{}/ui'.format(self._get_consul_dir())
+
+    def _get_consul_source_prefix(self):
+        return 'http://{}.s3.amazonaws.com/scaffold/consul'.format(self.bucket)
+
+    def _create_install_initconfig(self):
+        config_consul_py = self._get_config_consul_py()
+        consul_agent_dir = self._get_consul_agent_dir()
+        source_prefix = self._get_consul_source_prefix()
+        return cf.InitConfig(
+            packages={
+                'python': {
+                    'boto3': []
+                }
+            },
+            # groups={}, # do we need a consul group?
+            # users={}, # do we need a consul user?
+            sources={
+                consul_agent_dir: 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_linux_amd64.zip'
+            },
+            files={
+                config_consul_py: {
+                    'source': '{}/config_consul.py'.format(source_prefix),
+                    'mode': '000755',
+                    'owner': 'root',
+                    'group': 'root'
+                },
+                '/etc/init.d/consul': {
+                    'source': '{}/consul.service'.format(source_prefix),
+                    'mode': '000755',
+                    'owner': 'root',
+                    'group': 'root'
+                },
+            },
+            commands={
+                '20_mode': {
+                    'command': 'chmod 755 {}/consul'.format(consul_agent_dir)
+                },
+                '40_wait': {
+                    'command': 'while [ `ifconfig | grep "inet addr" | wc -l` -lt 3 ]; do echo "waiting for ip addr" > /opt/consul/wait && sleep 2; done'
+                },
+            }
+        )
+
+    def _create_startup_initconfig(self):
+        config_consul_py = self._get_config_consul_py()
+        consul_config_file = self._get_consul_config_file()
+        consul_data_dir = self._get_consul_data_dir()
+        consul_agent_dir = self._get_consul_agent_dir()
+        return cf.InitConfig(
+            commands={
+                '10_dirs': {
+                    'command': 'mkdir -m 0755 -p {}'.format(consul_data_dir)
+                },
+                '30_consul_config': {
+                    'command': 'python {0} {1}'.format(config_consul_py, consul_config_file)
+                },
+                '50_chkconfig': {
+                    'command': 'chkconfig --add consul'
+                }
+            },
+            services={
+                'sysvinit': {
+                    'consul': {
+                        'enabled': 'true',
+                        'ensureRunning': 'true',
+                        'files': [consul_config_file],
+                        'sources': [consul_agent_dir],
+                        'commands': 'config'
                     }
-                )
-            )
+                },
+            }
+        )
+
+        return None
+
+    def _create_config_server_initconfig(self):
+        cwlogs_config_file = '/opt/cw-logs/cwlogs.cfg'
+        config_cwlogs_py = '/opt/cw-logs/cwlogs.py'
+        consul_config_file = self._get_consul_config_file()
+        consul_data_dir = self._get_consul_data_dir()
+        source_prefix = self._get_consul_source_prefix()
+        return cf.InitConfig(
+            files={
+                # See https://www.consul.io/docs/agent/options.html#configuration_files
+                consul_config_file: {
+                    'content': {
+                        'datacenter': self.region,
+                        'data_dir': consul_data_dir,
+                        'log_level': 'INFO',
+                        'server': True,
+                        'bootstrap_expect': self.server_cluster_size,
+                        'bind_addr': 'REPLACE AT RUNTIME',
+                        'retry_join': 'REPLACE AT RUNTIME',
+                        '_eni_ids': [tp.Ref(e) for e in self.server_enis]  # used for runtime resolution
+                    },
+                    'mode': '000755',
+                    'owner': 'root',  # could be consul user?
+                    'group': 'root'   # could be consul group?
+                },
+                '/opt/cw-logs/awslogs-agent-setup.py': {
+                    'source': 'https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py',
+                    'mode': '000755',
+                    'owner': 'root',
+                    'group': 'root'
+                },
+                cwlogs_config_file: {
+                    'content': tp.Join('', [
+                        '[general]\n',
+                        'state_file = /var/awslogs/state/agent-state\n',
+                        '\n',
+                        '[consul_agent]\n',
+                        'file = /var/log/consul\n',
+                        'datetime_format = %b %d %H:%M:%S\n',
+                        'log_group_name = ', tp.Ref(self.log_group), '\n',
+                        'log_stream_name = REPLACE_AT_RUNTIME\n'
+                    ]),
+                    'mode': '000755',
+                    'owner': 'root',
+                    'group': 'root'
+                },
+                config_cwlogs_py: {
+                    'source': '{}/config_cwlogs.py'.format(source_prefix),
+                    'mode': '000755',
+                    'owner': 'root',
+                    'group': 'root'
+                }
+
+            },
+            commands={
+                '31_cwlogs_config': {
+                    'command': 'python {0} {1}'.format(config_cwlogs_py, cwlogs_config_file)
+                },
+                '60_cwlogs': {
+                    'command': 'python /opt/cw-logs/awslogs-agent-setup.py -n -r {} -c {}'.format(self.region, cwlogs_config_file)
+                },
+
+            }
+        )
+
+    def _create_config_ui_initconfig(self):
+        ui_dir = self._get_consul_ui_dir()
+        consul_config_file = self._get_consul_config_file()
+        consul_data_dir = self._get_consul_data_dir()
+        return cf.InitConfig(
+            sources={
+                ui_dir: 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_web_ui.zip'
+            },
+            files={
+                # See https://www.consul.io/docs/agent/options.html#configuration_files
+                consul_config_file: {
+                    'content': {
+                        'datacenter': self.region,
+                        'data_dir': consul_data_dir,
+                        'log_level': 'INFO',
+                        'retry_join': 'REPLACE AT RUNTIME',
+                        'ui': True,
+                        'ui_dir': ui_dir,
+                        '_eni_ids': [tp.Ref(e) for e in self.server_enis]  # used for runtime resolution
+                    },
+                    'mode': '000755',
+                    'owner': 'root',  # could be consul user?
+                    'group': 'root'   # could be consul group?
+                }
+            }
         )
 
 

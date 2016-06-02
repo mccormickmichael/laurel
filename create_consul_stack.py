@@ -35,7 +35,7 @@ def create_stack(args):
     vpc_id = outputs['VpcId']
     vpc_cidr = outputs['VpcCidr']
     private_subnet_ids = outputs.values(lambda k: 'PrivateSubnet' in k)
-    public_subnet_ids = []  # TODO: outputs.values(lambda k: 'PublicSubnet' in k)
+    public_subnet_ids = outputs.values(lambda k: 'PublicSubnet' in k)
 
     template = ConsulTemplate(
         args.stack_name,
