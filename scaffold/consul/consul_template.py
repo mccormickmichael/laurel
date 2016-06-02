@@ -309,7 +309,7 @@ class ConsulTemplate(TemplateBuilder):
                                 'log_group_name = ', tp.Ref(self.log_group), '\n',
                                 'log_stream_name = REPLACE_AT_RUNTIME\n'
                                 ]),
-                            'source': '{}/cwlogs.cfg'.format(source_prefix),var
+                            'source': '{}/cwlogs.cfg'.format(source_prefix),
                             'mode': '000755',
                             'owner': 'root',
                             'group': 'root'

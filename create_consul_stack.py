@@ -103,7 +103,7 @@ def get_args():
     ap.add_argument('--instance-type', default=default_instance_type,
                     help='Instance type for the Consul servers. Default: {}'.format(default_instance_type))
     ap.add_argument('--ui-instance-type', default=default_ui_instance_type,
-                    help='Instance type for the Consul UI servers. Default: {}'.foramt(default_ui_instance_type))
+                    help='Instance type for the Consul UI servers. Default: {}'.format(default_ui_instance_type))
     ap.add_argument('--cluster_size', default=default_cluster_size,
                     help='Number of instances in the Consul cluster. Should be an odd number > 1. Default: {}'.format(default_cluster_size))
 
