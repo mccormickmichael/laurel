@@ -34,7 +34,8 @@ def create_stack(args):
 
     vpc_id = outputs['VpcId']
     vpc_cidr = outputs['VpcCidr']
-    subnet_ids = outputs.values(lambda k: 'PrivateSubnet' in k)
+    private_subnet_ids = outputs.values(lambda k: 'PrivateSubnet' in k)
+    public_subnet_ids = []  # TODO: outputs.values(lambda k: 'PublicSubnet' in k)
 
     template = ConsulTemplate(
         args.stack_name,
@@ -42,10 +43,12 @@ def create_stack(args):
         bucket=args.s3_bucket,
         vpc_id=vpc_id,
         vpc_cidr=vpc_cidr,
-        subnet_ids=subnet_ids,
+        server_subnet_ids=private_subnet_ids,
+        ui_subnet_ids=public_subnet_ids,
         description=args.desc,
-        cluster_size=args.cluster_size,
-        instance_type=args.instance_type
+        server_cluster_size=args.cluster_size,
+        server_instance_type=args.instance_type,
+        ui_instance_type=args.ui_instance_type
     )
     template.build_template()
     template_json = template.to_json()
@@ -73,6 +76,7 @@ def create_stack(args):
 
 default_desc = 'Consul Stack'
 default_instance_type = 't2.micro'
+default_ui_instance_type = 't2.micro'
 default_cluster_size = 3
 default_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
 default_s3_key_prefix = 'scaffold/templates'
@@ -98,6 +102,8 @@ def get_args():
 
     ap.add_argument('--instance-type', default=default_instance_type,
                     help='Instance type for the Consul servers. Default: {}'.format(default_instance_type))
+    ap.add_argument('--ui-instance-type', default=default_ui_instance_type,
+                    help='Instance type for the Consul UI servers. Default: {}'.foramt(default_ui_instance_type))
     ap.add_argument('--cluster_size', default=default_cluster_size,
                     help='Number of instances in the Consul cluster. Should be an odd number > 1. Default: {}'.format(default_cluster_size))
 

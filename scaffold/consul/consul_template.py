@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Define a stack to host a Consul cluster
+# Define a stack to host a Consul cluster.
 #
 # Template Parameters (provided at templat creation time):
 # - name
@@ -10,17 +10,21 @@
 # - region
 #   The AWS region in which this template will be executed
 # - bucket
-#   The S3 bucket to be used for uploading server configuration files
+#   The S3 bucket where configuration and deployment files are located
 # - vpc_id
 #   ID of the VPC in which this stack is built
 # - vpc_cidr
 #   CIDR block of the vpc
-# - subnet_ids
-#   List of subnets in which the consul cluster should be built.
-# - cluster_size
+# - server_subnet_ids
+#   List of subnets in which the consul server cluster should be built.
+# - ui_subnet_ids
+#   List of subnets in which the consul ui cluster should be built.
+# - server_cluster_size
 #   How many instances should participate in the cluster? Should be at least 3.
-# - instance_type
-#   Instance type of the instances. Defaults to t2.micro
+# - server_instance_type
+#   Instance type of the server instances. Defaults to t2.micro
+# - ui_instance_type
+#   Instance type of the ui instances. Defaults to t2.micro
 #
 # Stack Parameters (provided to the template at stack create/update time):
 #
@@ -38,6 +42,7 @@ import troposphere.ec2 as ec2
 import troposphere.iam as iam
 import troposphere.autoscaling as asg
 import troposphere.cloudformation as cf
+import troposphere.cloudwatch as cw
 import troposphere.logs as logs
 import troposphere as tp
 
@@ -47,7 +52,8 @@ from ..network import net
 
 class ConsulTemplate(TemplateBuilder):
 
-    BUILD_PARM_NAMES = ['region', 'bucket', 'vpc_id', 'vpc_cidr', 'subnet_ids', 'cluster_size', 'instance_type']
+    BUILD_PARM_NAMES = ['region', 'bucket', 'vpc_id', 'vpc_cidr', 'server_subnet_ids', 'ui_subnet_ids',
+                        'server_cluster_size', 'server_instance_type', 'ui_instance_type']
     CONSUL_KEY_PARAM_NAME = 'ConsulKey'
 
     def __init__(self, name,
@@ -55,51 +61,69 @@ class ConsulTemplate(TemplateBuilder):
                  bucket,
                  vpc_id,
                  vpc_cidr,
-                 subnet_ids,
+                 server_subnet_ids,
+                 ui_subnet_ids=[],
                  description='[REPLACEME]',
-                 cluster_size=3,
-                 instance_type='t2.micro'):
+                 server_cluster_size=3,
+                 server_instance_type='t2.micro',
+                 ui_instance_type='t2.micro'):
         super(ConsulTemplate, self).__init__(name, description, ConsulTemplate.BUILD_PARM_NAMES)
 
         self.region = region
         self.bucket = bucket
         self.vpc_id = vpc_id
         self.vpc_cidr = vpc_cidr
-        self.subnet_ids = subnet_ids
-        self.cluster_size = cluster_size
-        self.instance_type = instance_type
+        self.server_subnet_ids = server_subnet_ids
+        self.ui_subnet_ids = ui_subnet_ids
+        self.server_cluster_size = server_cluster_size
+        self.server_instance_type = server_instance_type
+        self.ui_instance_type = ui_instance_type
 
     def build_template(self):
         super(ConsulTemplate, self).build_template()
 
         self.create_parameters()
 
-        sg = self.create_sg()
-        iam_profile = self.create_iam_profile()
         self.create_logstreams()
 
-        self.enis = [
-            self.create_eni(i, sg, self.subnet_ids[i % len(self.subnet_ids)]) for i in range(0, self.cluster_size)
+        self.create_server_cluster()
+        if len(self.ui_subnet_ids) > 0:
+            self.create_ui_cluster()
+
+    def create_server_cluster(self):
+        sg = self.create_server_sg()
+        iam_profile = self.create_server_iam_profile()
+        server_subnet_len = len(self.server_subnet_ids)
+        self.server_enis = [
+            self.create_server_eni(i, sg, self.server_subnet_ids[i % server_subnet_len])
+            for i in range(self.server_cluster_size)
         ]
-        self.asgs = [
-            self.create_asg(i, sg, iam_profile, self.subnet_ids[i % len(self.subnet_ids)], self.enis[i]) for i in range(self.cluster_size)
+        self.server_asgs = [
+            self.create_server_asg(i, sg, iam_profile, self.server_subnet_ids[i % server_subnet_len], self.server_enis[i])
+            for i in range(self.server_cluster_size)
         ]
+        self.server_asgs[0].Metadata = self._create_server_metadata()
+
+    def create_ui_cluster(self):
+        sg = self.create_ui_sg()
+        iam_profile = self.create_ui_iam_profile()
+        self.ui_asg = self.create_ui_asg(sg, iam_profile)
 
     def create_parameters(self):
         self.add_parameter(tp.Parameter(self.CONSUL_KEY_PARAM_NAME, Type='String'))
 
-    def create_eni(self, index, security_group, subnet_id):
+    def create_server_eni(self, index, security_group, subnet_id):
         eni = ec2.NetworkInterface('Consul{}ENI'.format(index),
                                    Description='ENI for Consul cluster member {}'.format(index),
                                    GroupSet=[tp.Ref(security_group)],
                                    SourceDestCheck=True,
                                    SubnetId=subnet_id,
-                                   Tags=self.default_tags)
+                                   Tags=self._rename('{} ENI-'+str(index)))
         self.add_resource(eni)
         self.add_output(tp.Output(eni.name, Value=tp.Ref(eni)))
         return eni
 
-    def create_sg(self):
+    def create_server_sg(self):
         rules = [net.sg_rule(self.vpc_cidr, net.SSH, net.TCP)] + [
             net.sg_rule(self.vpc_cidr, ports, protocol)
             for protocol in [net.TCP, net.UDP] for ports in [53, (8300, 8302), 8400, 8500, 8600]
@@ -112,33 +136,41 @@ class ConsulTemplate(TemplateBuilder):
         self.add_resource(sg)
         return sg
 
-    def create_asg(self, index, security_group, iam_profile, subnet_id, eni):
-        lc_name = 'Consul{}LC'.format(index)
+    def create_server_asg(self, index, security_group, iam_profile, subnet_id, eni):
+        lc_name = self._server_lc_name(index)
         lc = asg.LaunchConfiguration(lc_name,
                                      ImageId=tp.FindInMap(AMI_REGION_MAP_NAME, self.region, 'GENERAL'),
-                                     InstanceType=self.instance_type,
+                                     InstanceType=self.server_instance_type,
                                      SecurityGroups=[tp.Ref(security_group)],
                                      KeyName=tp.Ref(self.CONSUL_KEY_PARAM_NAME),
                                      IamInstanceProfile=tp.Ref(iam_profile),
                                      InstanceMonitoring=False,
                                      AssociatePublicIpAddress=False,
-                                     UserData=self._create_consul_userdata(eni, lc_name),
-                                     Metadata=self._create_consul_metadata(eni, index))
-        group = asg.AutoScalingGroup('Consul{}ASG'.format(index),
+                                     UserData=self._create_server_userdata(eni, index))
+        group = asg.AutoScalingGroup(self._server_asg_name(index),
                                      MinSize=1, MaxSize=1,
                                      LaunchConfigurationName=tp.Ref(lc),
                                      VPCZoneIdentifier=[subnet_id],
-                                     Tags=asgtag(self._rename('{} Server-' + str(index))))
+                                     Tags=asgtag(self._rename('{} Server-'+str(index))))
         self.add_resources(lc, group)
         self.add_output(tp.Output(group.name, Value=tp.Ref(group)))
         return group
+
+    def create_ui_asg(self, security_group, iam_profile):
+        return None
+
+    def _server_lc_name(self, index):
+        return 'Consul{}LC'.format(index)
+
+    def _server_asg_name(self, index):
+        return 'Consul{}ASG'.format(index)
 
     def create_logstreams(self):
         self.log_group = logs.LogGroup('ConsulLogGroup',
                                        RetentionInDays=3)
         self.add_resources(self.log_group)
 
-    def create_iam_profile(self):
+    def create_server_iam_profile(self):
         role = iam.Role('ConsulInstanceRole',
                         AssumeRolePolicyDocument={
                             'Statement': [{
@@ -178,15 +210,19 @@ class ConsulTemplate(TemplateBuilder):
         self.add_resources(role, profile)
         return profile
 
-    def _create_consul_userdata(self, eni, resource_name):
+    def _create_server_userdata(self, eni, cluster_index):
+        resource_name = self._server_asg_name(0)
         startup = [
             '#!/bin/bash\n',
             'yum update -y && yum install -y yum-cron && chkconfig yum-cron on\n',
             'REGION=', self.region, '\n',
-            'INS_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)\n',
             'ENI_ID=', tp.Ref(eni), '\n',
+            'INS_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)\n'
             # TODO: do we need a sleep/check loop here? It hasn't failed so far
             'aws ec2 attach-network-interface --instance-id $INS_ID --device-index 1 --network-interface-id $ENI_ID --region $REGION\n',
+            'mkdir -p -m 0755 /opt/consul\n'
+            'echo "', cluster_index, '" > /opt/consul/cluster_index\n',
+            'echo $ENI_ID > /opt/consul/eni_id\n',
             '/opt/aws/bin/cfn-init -v ',
             '  --stack ', REF_STACK_NAME,
             '  --resource ', resource_name,
@@ -195,14 +231,23 @@ class ConsulTemplate(TemplateBuilder):
         ]
         return tp.Base64(tp.Join('', startup))  # TODO: There has GOT to be a better way to do userdata.
 
-    def _create_consul_metadata(self, eni, index):
+    def _create_server_metadata(self):
         consul_dir = '/opt/consul'
         agent_dir = '{}/agent'.format(consul_dir)
+        ui_dir = '{}/ui'.format(consul_dir)
         config_dir = '{}/config'.format(consul_dir)
-        config_file = '{}/config.json'.format(config_dir)
-        config_py = '{}/config.py'.format(consul_dir)
         data_dir = '{}/data'.format(consul_dir)
+
+        server_config_file = '{}/config.json'.format(config_dir)
+        # ui_config_file = '{}/config_ui.json'.format(config_dir) ??
+        config_server_py = '{}/config_server.py'.format(consul_dir)
+        # config_ui_py = '{}/config_ui.py'.format(consul_dir)
+
+        cwlogs_config_file = '/opt/cw-logs/cwlogs.cfg'
+        config_cwlogs_py = '/opt/cw-logs/cwlogs.py'
+
         source_prefix = 'http://{}.s3.amazonaws.com/scaffold/consul'.format(self.bucket)
+
         return cf.Metadata(
             cf.Init(
                 cf.InitConfigSets(install=['install']),
@@ -216,25 +261,27 @@ class ConsulTemplate(TemplateBuilder):
                     # users={}, # do we need a consul user?
                     sources={
                         agent_dir: 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_linux_amd64.zip',
+                        ui_dir: 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_web_ui.zip'
                     },
                     files={
                         # See https://www.consul.io/docs/agent/options.html#configuration_files
-                        config_file: {
+                        server_config_file: {
                             'content': {
                                 'datacenter': self.region,
                                 'data_dir': data_dir,
                                 'log_level': 'INFO',
                                 'server': True,
-                                'bootstrap_expect': self.cluster_size,
-                                'bind_addr': tp.Ref(eni),  # resolved later
-                                'retry_join': [tp.Ref(e) for e in self.enis if e != eni]  # resolved later
+                                'bootstrap_expect': self.server_cluster_size,
+                                'bind_addr': 'REPLACE AT RUNTIME',
+                                'retry_join': 'REPLACE AT RUNTIME',
+                                '_eni_ids': [tp.Ref(e) for e in self.server_enis]  # used for runtime resolution
                             },
                             'mode': '000755',
                             'owner': 'root',  # could be consul user?
                             'group': 'root'   # could be consul group?
                         },
-                        config_py: {
-                            'source': '{}/config.py'.format(source_prefix),
+                        config_server_py: {
+                            'source': '{}/config_server.py'.format(source_prefix),
                             'mode': '000755',
                             'owner': 'root',
                             'group': 'root'
@@ -251,18 +298,24 @@ class ConsulTemplate(TemplateBuilder):
                             'owner': 'root',
                             'group': 'root'
                         },
-                        '/opt/cw-logs/cwlogs.cfg': {
+                        cwlogs_config_file: {
                             'content': tp.Join('', [
                                 '[general]\n',
                                 'state_file = /var/awslogs/state/agent-state\n',
                                 '\n',
-                                '[/var/log/consul]\n',
+                                '[consul_agent]\n',
                                 'file = /var/log/consul\n',
                                 'datetime_format = %b %d %H:%M:%S\n',
                                 'log_group_name = ', tp.Ref(self.log_group), '\n',
-                                'log_stream_name = consul_server_{}\n'.format(index),
+                                'log_stream_name = REPLACE_AT_RUNTIME\n'
                                 ]),
-                            'source': '{}/cwlogs.cfg'.format(source_prefix),
+                            'source': '{}/cwlogs.cfg'.format(source_prefix),var
+                            'mode': '000755',
+                            'owner': 'root',
+                            'group': 'root'
+                        },
+                        config_cwlogs_py: {
+                            'source': '{}/config_cwlogs.py'.format(source_prefix),
                             'mode': '000755',
                             'owner': 'root',
                             'group': 'root'
@@ -270,13 +323,16 @@ class ConsulTemplate(TemplateBuilder):
                     },
                     commands={
                         '10_dirs': {
-                            'command': 'mkdir -p {}'.format(data_dir)  # also -m 755?
+                            'command': 'mkdir -m 0755 -p {}'.format(data_dir)
                         },
                         '20_mode': {
                             'command': 'chmod 755 {}/consul'.format(agent_dir)
                         },
-                        '30_config': {
-                            'command': 'cp {0} {0}.orig && python {1} {0}'.format(config_file, config_py)  # blech.
+                        '30_consul_config': {
+                            'command': 'python {0} {1}'.format(config_server_py, server_config_file)
+                        },
+                        '31_cwlogs_config': {
+                            'command': 'python {0} {1}'.format(config_cwlogs_py, cwlogs_config_file)
                         },
                         '40_wait': {
                             'command': 'while [ `ifconfig | grep "inet addr" | wc -l` -lt 3 ]; do echo "waiting for ip addr" > /opt/consul/wait && sleep 2; done'
@@ -293,7 +349,7 @@ class ConsulTemplate(TemplateBuilder):
                             'consul': {
                                 'enabled': 'true',
                                 'ensureRunning': 'true',
-                                'files': [config_file],
+                                'files': [server_config_file],
                                 'sources': [agent_dir],
                                 'commands': 'config'
                             }
@@ -312,8 +368,8 @@ if __name__ == '__main__':
     bucket = sys.argv[3] if len(sys.argv) > 3 else 'thousandleaves-us-west-2-laurel-deploy'
     vpc_id = sys.argv[4] if len(sys.argv) > 4 else 'vpc-deadbeef'
     vpc_cidr = sys.argv[5] if len(sys.argv) > 5 else '10.0.0.0/16'
-    subnet_ids = sys.argv[6:] if len(sys.argv) > 6 else ['subnet-deadbeef', 'subnet-cab4abba']
+    server_subnet_ids = sys.argv[6:] if len(sys.argv) > 6 else ['subnet-deadbeef', 'subnet-cab4abba']
 
-    template = ConsulTemplate(name, region, bucket, vpc_id, vpc_cidr, subnet_ids)
+    template = ConsulTemplate(name, region, bucket, vpc_id, vpc_cidr, server_subnet_ids)
     template.build_template()
     print template.to_json()
