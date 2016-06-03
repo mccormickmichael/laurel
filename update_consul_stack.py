@@ -11,6 +11,7 @@ from scaffold.stack.operation import StackOperation
 from scaffold.consul.consul_template import ConsulTemplate
 from scaffold.doby import Doby
 
+
 def upload_config(session, bucket_name, key_prefix, base_dir):
     s3 = session.resource('s3')
     bucket = s3.Bucket(bucket_name)
@@ -54,13 +55,9 @@ def update_stack(args):
     basedir = os.path.dirname(inspect.getfile(ConsulTemplate))
     upload_config(session, args.s3_bucket, 'scaffold', basedir)  # TODO: replace 'scaffold' with args.key_prefix
 
-    cf = session.resource('cloudformation')
-    current_parms = Parameters(cf.Stack(args.stack_name))
-
-    stack_parms = {
-        ConsulTemplate.CONSUL_KEY_PARAM_NAME:
-        current_parms[ConsulTemplate.CONSUL_KEY_PARAM_NAME] if args.consul_key is None else args.consul_key
-    }
+    stack_parms = {}
+    if args.consul_key is not None:
+        stack_parms[ConsulTemplate.CONSUL_KEY_PARAM_NAME] = args.consul_key
 
     updater = StackOperation(session, args.stack_name, template_json, args.s3_bucket, args.s3_key_prefix)
     stack = updater.update(stack_parms)

@@ -34,8 +34,12 @@ def update_stack(args):
     if args.dry_run:
         return Doby(results)
 
+    stack_parms = {}
+    if args.bastion_key is not None:
+        stack_parms[ServicesTemplate.BASTION_KEY_PARM_NAME] = args.bastion_key
+
     updater = StackOperation(session, args.stack_name, template_json, args.s3_bucket, args.s3_key_prefix)
-    stack = updater.update()
+    stack = updater.update(stack_parms)
     results['stack_id'] = stack.stack_id
     results['stack_status'] = stack.stack_status
     results['stack_status_reason'] = stack.stack_status_reason
@@ -59,16 +63,16 @@ def get_args():
                     help='Stack description. Strongy encouraged.')
     ap.add_argument('--bastion-key', required=True,
                     help='Name of the key pair to access the bastion server. Required.')
+    ap.add_argument('--bastion-type', default=default_bastion_type,
+                    help='Instance type of the Bastion server. Default: {}'.format(default_bastion_type))
+    ap.add_argument('--nat-type', default=default_nat_type,
+                    help='Instance type of the NAT server. Default: {}'.format(default_nat_type))
+
 
     ap.add_argument('--s3-bucket', default=default_s3_bucket,
                     help='Name of the S3 bucket to which stack template files are uploaded. Default: {}'.format(default_s3_bucket))
     ap.add_argument('--s3-key-prefix', default=default_s3_key_prefix,
                     help='Prefix to use when uploading stack template files to the bucket. Default: {}'.format(default_s3_key_prefix))
-
-    ap.add_argument('--bastion-type', default=default_bastion_type,
-                    help='Instance type of the Bastion server. Default: {}'.format(default_bastion_type))
-    ap.add_argument('--nat-type', default=default_nat_type,
-                    help='Instance type of the NAT server. Default: {}'.format(default_nat_type))
 
     ap.add_argument('--profile', default=default_profile,
                     help='AWS Credential and Config profile to use. Default: {}'.format(default_profile))
