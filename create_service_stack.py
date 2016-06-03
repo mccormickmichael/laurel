@@ -4,7 +4,7 @@ import argparse
 
 import boto3
 
-from scaffold.stack import Outputs
+from scaffold import stack
 from scaffold.stack.operation import StackOperation
 from scaffold.services.services_template import ServicesTemplate
 from scaffold.doby import Doby
@@ -13,8 +13,7 @@ from scaffold.doby import Doby
 def create_stack(args):
     session = boto3.session.Session(profile_name=args.profile)
 
-    cf = session.resource('cloudformation')
-    outputs = Outputs(cf.Stack(args.network_stack_name))
+    outputs = stack.outputs(session, args.network_stack_name)
 
     vpc_id = outputs['VpcId']
     vpc_cidr = outputs['VpcCidr']
@@ -43,10 +42,10 @@ def create_stack(args):
     }
 
     creator = StackOperation(session, args.stack_name, template_json, args.s3_bucket, args.s3_key_prefix)
-    stack = creator.create(stack_parms)
-    results['stack_id'] = stack.stack_id
-    results['stack_status'] = stack.stack_status
-    results['stack_status_reason'] = stack.stack_status_reason
+    new_stack = creator.create(stack_parms)
+    results['stack_id'] = new_stack.stack_id
+    results['stack_status'] = new_stack.stack_status
+    results['stack_status_reason'] = new_stack.stack_status_reason
     # the return values here suck. How can we do better?
     return Doby(results)
 

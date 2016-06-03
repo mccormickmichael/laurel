@@ -24,6 +24,7 @@ def _to_s3_url(bucket, key):
     return 'http://s3.amazonaws.com/{}/{}'.format(bucket, key)
 
 
+# TODO: rewrite to cache values
 class StackQuery(object):
     def __init__(self, boto3_session, stack_name):
         self._session = boto3_session

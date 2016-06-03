@@ -4,15 +4,13 @@ import argparse
 
 import boto3
 
-from scaffold.stack import Outputs
+from scaffold import stack
 
 
 def lights_out(args):
     session = boto3.session.Session(profile_name=args.profile)
 
-    cf = session.resource('cloudformation')
-
-    outputs = Outputs(cf.Stack(args.stack_name))
+    outputs = stack.outputs(session, args.stack_name)
     asgs = outputs.values(lambda k: k.endswith('ASG'))
 
     if args.dry_run:

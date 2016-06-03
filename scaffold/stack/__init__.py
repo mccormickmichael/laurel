@@ -93,6 +93,10 @@ class Summary(object):
         return self._build_parameters
 
 
+def outputs(boto3_session, stack_name):
+    return Outputs(boto3_session.resource('cloudformation').Stack(stack_name))
+
+
 def get_template_summary(region, stack_name):
     cf = boto3.client('cloudformation', region_name=region)
     return cf.get_template_summary(StackName=stack_name)

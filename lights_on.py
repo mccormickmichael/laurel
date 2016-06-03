@@ -4,20 +4,19 @@ import argparse
 
 import boto3
 
-from scaffold.stack import Outputs
+from scaffold import stack
 
 
 def lights_on(args):
     session = boto3.session.Session(profile_name=args.profile)
 
-    cf = session.resource('cloudformation')
-    cf_client = cf.meta.client
+    cf_client = session.client('cloudformation')
     resources = cf_client.get_template(StackName=args.stack_name)['TemplateBody']['Resources']
     asg_values = {k: {'min': v['Properties']['MinSize'],
                       'max': v['Properties']['MaxSize']}
                   for k, v in resources.items() if k.endswith('ASG')}
 
-    outputs = Outputs(cf.Stack(args.stack_name))
+    outputs = stack.outputs(session, args.stack_name)
 
     if args.dry_run:
         print 'Not actually resetting ASG min and max values because dry run flag is set'
