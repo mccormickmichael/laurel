@@ -5,6 +5,7 @@ import time
 import botocore
 
 from . import Parameters
+from . import _get_stack
 
 
 def _printing_cb(stack_id, stack_status, status_reason):
@@ -22,26 +23,6 @@ def _monitor_stack(stack, conditions, callback):
 
 def _to_s3_url(bucket, key):
     return 'http://s3.amazonaws.com/{}/{}'.format(bucket, key)
-
-
-# TODO: rewrite to cache values
-class StackQuery(object):
-    def __init__(self, boto3_session, stack_name):
-        self._session = boto3_session
-        self._stack_name = stack_name
-
-    def load_stack(self):
-        stack = self._session.resource('cloudformation').Stack(self._stack_name)
-        stack.load()
-        return stack
-
-    def get_build_parameters(self):
-        template = self._session.client('cloudformation').get_template(StackName=self._stack_name)
-        return template['TemplateBody']['Metadata']['BuildParameters']
-
-    def get_stack_parameters(self):
-        stack = self.load_stack()
-        return Parameters(stack).to_dict()
 
 
 class StackOperation(object):
@@ -97,14 +78,13 @@ class StackDeleter(object):
     def __init__(self, boto3_session, stack_name):
         self._session = boto3_session
         self._stack_name = stack_name
-        self._query = StackQuery(self._session, self._stack_name)
 
     def validate_stack_exists(self):
-        self._query.load_stack()
+        _get_stack(self._session, self._stack_name)
         return True
 
     def delete(self, progress_callback=_printing_cb):
-        stack = self._query.load_stack()
+        stack = _get_stack(self._session, self._stack_name)
         stack.delete()
         try:
             _monitor_stack(stack, ['DELETE_IN_PROGRESS'], progress_callback)

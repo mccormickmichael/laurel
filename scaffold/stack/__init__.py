@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import collections
 import json
 
 import boto3
@@ -7,7 +8,7 @@ import boto3
 from ..doby import Doby
 
 
-class Parameters(object):
+class Parameters(collections.MutableMapping):
     def __init__(self, boto3_stack=None, parms={}):
         if boto3_stack is None or boto3_stack.parameters is None:
             stack_parms = []
@@ -42,7 +43,7 @@ class Parameters(object):
         return iter(self._parms)
 
 
-class Outputs(object):
+class Outputs(collections.Mapping):
     def __init__(self, boto3_stack):
         self._outputs = boto3_stack.outputs
 

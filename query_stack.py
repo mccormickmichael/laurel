@@ -7,13 +7,16 @@ import argparse
 
 import boto3
 
-from scaffold.stack.operation import StackQuery
+from scaffold import stack
 
 
 def query_stack(stack_name, profile):
     session = boto3.session.Session(profile_name=profile)
-    query = StackQuery(session, stack_name)
-    return (query.get_build_parameters(), query.get_stack_parameters())
+
+    return [
+        stack.summary(session, stack_name).build_parameters(),
+        stack.parameters(session, stack_name)
+    ]
 
 
 default_profile = 'default'
@@ -34,11 +37,11 @@ if __name__ == '__main__':
     if len(build_parms) == 0:
         print('  (none)')
     else:
-        for name, value in build_parms.iteritems():
+        for name, value in build_parms.items():
             print('  {} : {}'.format(name, value))
     print('Stack Parameters:')
     if len(stack_parms) == 0:
         print('  (none)')
     else:
-        for name, value in stack_parms.iteritems():
+        for name, value in stack_parms.items():
             print('  {} : {}'.format(name, value))
