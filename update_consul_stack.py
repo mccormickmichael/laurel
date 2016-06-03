@@ -25,7 +25,7 @@ def upload_config(session, bucket_name, key_prefix, base_dir):
                                   Body=f.read())
 
 
-def create_stack(args):
+def update_stack(args):
     session = boto3.session.Session(profile_name=args.profile)
 
     summary = Summary(session, args.stack_name)

@@ -75,7 +75,7 @@ class ConsulTemplate(TemplateBuilder):
         self.vpc_cidr = vpc_cidr
         self.server_subnet_ids = server_subnet_ids
         self.ui_subnet_ids = ui_subnet_ids
-        self.server_cluster_size = server_cluster_size
+        self.server_cluster_size = int(server_cluster_size)
         self.server_instance_type = server_instance_type
         self.ui_instance_type = ui_instance_type
 
