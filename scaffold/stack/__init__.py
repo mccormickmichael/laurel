@@ -106,20 +106,3 @@ def summary(boto3_session, stack_name):
 
 def _get_stack(session, name):
     return session.resource('cloudformation').Stack(name)
-
-
-## WHY are these here? TODO: find callers and possibly move them somewhere else. Also, rewrite to use boto3.session
-
-def get_template_summary(region, stack_name):
-    cf = boto3.client('cloudformation', region_name=region)
-    return cf.get_template_summary(StackName=stack_name)
-
-
-def get_template_metadata(region, stack_name):
-    summary = get_template_summary(region, stack_name)
-    return json.loads(summary['Metadata'])
-
-
-def get_stack_description(region, stack_name):
-    summary = get_template_summary(region, stack_name)
-    return summary['Description']
