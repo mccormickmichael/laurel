@@ -21,7 +21,7 @@ class TestParameters(unittest.TestCase):
         self.mock_stack = mock_stack
 
     def test_init_stack(self):
-        parms = Parameters(stack=self.mock_stack)
+        parms = Parameters(boto3_stack=self.mock_stack)
         self.assertEqual(4, len(parms))
 
     def test_init_parms(self):
@@ -29,30 +29,36 @@ class TestParameters(unittest.TestCase):
         self.assertEqual(2, len(parms))
 
     def test_getitem(self):
-        parms = Parameters(stack=self.mock_stack)
+        parms = Parameters(boto3_stack=self.mock_stack)
         self.assertEqual('StartsWithOneValue', parms['StartsWithOne'])
 
     def test_getitem_nokey(self):
-        parms = Parameters(stack=self.mock_stack)
+        parms = Parameters(boto3_stack=self.mock_stack)
         with self.assertRaises(KeyError):
             parms['Blah']
 
     def test_setitem(self):
-        parms = Parameters(stack=self.mock_stack)
+        parms = Parameters(boto3_stack=self.mock_stack)
         parms['Thing'] = 'Biggles'
         self.assertEqual('Biggles', parms['Thing'])
 
     def test_setitem_exists(self):
-        parms = Parameters(stack=self.mock_stack)
+        parms = Parameters(boto3_stack=self.mock_stack)
         parms['StartsWithOne'] = 'Biggles'
         self.assertEqual('Biggles', parms['StartsWithOne'])
 
     def test_delitem(self):
-        parms = Parameters(stack=self.mock_stack)
+        parms = Parameters(boto3_stack=self.mock_stack)
         del parms['StartsWithOne']
         self.assertFalse('StartsWithOne' in parms)
 
     def test_merge(self):
         new_parms = {'StartsWithOne': 'biggles'}
-        parms = Parameters(stack=self.mock_stack, parms=new_parms)
+        parms = Parameters(boto3_stack=self.mock_stack, parms=new_parms)
         self.assertEqual('biggles', parms['StartsWithOne'])
+
+    def test_update(self):
+        new_parms = {'StartsWithOne': 'biggles'}
+        parameters = Parameters(boto3_stack=self.mock_stack)
+        parameters.update(new_parms)
+        self.assertEqual('biggles', parameters['StartsWithOne'])

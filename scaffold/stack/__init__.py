@@ -8,29 +8,23 @@ from ..doby import Doby
 
 
 class Parameters(object):
-
-    @staticmethod
-    def build(stack_params):
-        return Parameters(boto3_stack=None, parms=stack_params).build_stack_parms()
-
-    @staticmethod
-    def merge(stack, updated_stack_params):
-        return Parameters(stack, updated_stack_params).build_stack_parms()
-
     def __init__(self, boto3_stack=None, parms={}):
         if boto3_stack is None or boto3_stack.parameters is None:
             stack_parms = []
         else:
             stack_parms = boto3_stack.parameters
         self._parms = {p['ParameterKey']: p['ParameterValue'] for p in stack_parms}
-        for k, v in parms.iteritems():
-            self._parms[k] = v
+        self.update(parms)
 
-    def build_stack_parms(self):
+    def to_stack_parms(self):
         return [{'ParameterKey': k, 'ParameterValue': v} for k, v in self._parms.items()]
 
     def to_dict(self):
         return dict(self._parms)
+
+    def update(self, parms):
+        for k, v in parms.iteritems():
+            self._parms[k] = v
 
     def __len__(self):
         return len(self._parms)
@@ -93,9 +87,27 @@ class Summary(object):
         return self._build_parameters
 
 
-def outputs(boto3_session, stack_name):
-    return Outputs(boto3_session.resource('cloudformation').Stack(stack_name))
+def new_parameters(parms_dict):
+    return Parameters(parms=parms_dict)
 
+
+def parameters(boto3_session, stack_name):
+    return Parameters(_get_stack(boto3_session, stack_name))
+
+
+def outputs(boto3_session, stack_name):
+    return Outputs(_get_stack(boto3_session, stack_name))
+
+
+def summary(boto3_session, stack_name):
+    return Summary(boto3_session, stack_name)
+
+
+def _get_stack(session, name):
+    return session.resource('cloudformation').Stack(name)
+
+
+## WHY are these here? TODO: find callers and possibly move them somewhere else. Also, rewrite to use boto3.session
 
 def get_template_summary(region, stack_name):
     cf = boto3.client('cloudformation', region_name=region)

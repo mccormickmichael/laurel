@@ -53,12 +53,14 @@ class StackOperation(object):
         self._template_url = self._upload_template(template_body)
 
     def create(self, stack_params={}, progress_callback=_printing_cb):
-        cf = self._session.resource('cloudformation')  # icky?
+        cf = self._session.resource('cloudformation')
+
+        parameters = Parameters(parms=stack_params)
 
         stack = cf.create_stack(
             StackName=self._stack_name,
             TemplateURL=self._template_url,
-            Parameters=Parameters.build(stack_params),
+            Parameters=parameters.to_stack_parms(),
             Capabilities=['CAPABILITY_IAM'],
             TimeoutInMinutes=10,
             OnFailure='ROLLBACK')
@@ -71,9 +73,10 @@ class StackOperation(object):
         cf = self._session.resource('cloudformation')
 
         stack = cf.Stack(self._stack_name)
-        parameters = Parameters.merge(stack, updated_stack_params)
+        parameters = Parameters(boto3_stack=stack)
+        parameters.update(updated_stack_params)
         stack.update(TemplateURL=self._template_url,
-                     Parameters=parameters,
+                     Parameters=parameters.to_stack_parms(),
                      Capabilities=['CAPABILITY_IAM'])
         # TODO: Add notificationArn and Stack Tags
 
