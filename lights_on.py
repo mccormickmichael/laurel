@@ -18,12 +18,17 @@ def lights_on(args):
 
     outputs = stack.outputs(session, args.stack_name)
 
+    logical_asgs = outputs.keys(lambda k: k.endswith('ASG'))
+    if len(args.asg_names) > 0:
+        logical_asgs = [asg for asg in logical_asgs if any((partial in asg for partial in args.asg_names))]
+        asg_values = {k: asg_values[k] for k in asg_values if k in logical_asgs}
+
     if args.dry_run:
         print 'Not actually resetting ASG min and max values because dry run flag is set'
         return asg_values
 
     autoscale = session.client('autoscaling')
-    for logical_asg in outputs.keys(lambda k: k.endswith('ASG')):
+    for logical_asg in logical_asgs:
         autoscale.update_auto_scaling_group(
             AutoScalingGroupName=outputs[logical_asg],
             MinSize=asg_values[logical_asg]['min'],
@@ -39,6 +44,8 @@ default_profile = 'default'
 def get_args():
     ap = argparse.ArgumentParser(description='Scale all ASGs in a stack back to their stack defaults')
     ap.add_argument('stack_name', help='Name of the stack')
+    ap.add_argument('asg_names', nargs='*',
+                    help='Specific ASGs to turn off. If omitted, all ASGs in the stack will be turned off')
 
     ap.add_argument('--profile', default=default_profile,
                     help='AWS Credential and Config profile to use. Default: {}'.format(default_profile))
