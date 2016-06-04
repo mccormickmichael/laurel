@@ -21,6 +21,7 @@ def eni_to_ip(ec2, eni):
 config_file = sys.argv[1]
 identity = urllib2.urlopen('http://169.254.169.254/latest/dynamic/instance-identity/document').read()
 region = json.loads(identity)['region']
+my_private_ip = urllib2.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4').read()
 
 ec2 = boto3.resource('ec2', region_name=region)
 
@@ -38,6 +39,7 @@ if 'server' in config:  # server mode
     config['server'] = True
 elif 'ui' in config:  # web UI mode
     config['ui'] = True
+    config['client_addr'] = my_private_ip
 else:  # generic client agent mode
     pass
 

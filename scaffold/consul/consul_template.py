@@ -124,10 +124,10 @@ class ConsulTemplate(TemplateBuilder):
         return eni
 
     def create_server_sg(self):
-        rules = [net.sg_rule(self.vpc_cidr, net.SSH, net.TCP)] + [
-            net.sg_rule(self.vpc_cidr, ports, protocol)
-            for protocol in [net.TCP, net.UDP] for ports in [53, (8300, 8302), 8400, 8500, 8600]
+        rules = self._create_consul_sg_rules() + [
+            net.sg_rule(self.vpc_cidr, net.SSH, net.TCP)
         ]
+
         sg = ec2.SecurityGroup('ConsulSecurityGroup',
                                GroupDescription='Consul Instance Security Group',
                                SecurityGroupIngress=rules,
@@ -162,8 +162,17 @@ class ConsulTemplate(TemplateBuilder):
     def _server_asg_name(self, index):
         return 'Consul{}ASG'.format(index)
 
+    def _create_consul_sg_rules(self):
+        # see https://www.consul.io/docs/agent/options.html#ports-used
+        # TODO: could create this as a separate SG, then all agents can a
+        return [
+            net.sg_rule(self.vpc_cidr, port, net.TCP) for port in (53, (8300, 8302), 8400, 8500, 8600)
+        ] + [
+            net.sg_rule(self.vpc_cidr, port, net.UDP) for port in ((8301, 8302), 8600)
+        ]
+
     def create_ui_sg(self):
-        ingress_rules = [
+        ingress_rules = self._create_consul_sg_rules() + [
             net.sg_rule(net.CIDR_ANY, port, net.TCP) for port in [net.HTTP, net.HTTPS]
         ] + [
             net.sg_rule(self.vpc_cidr, net.SSH, net.TCP)
@@ -197,7 +206,7 @@ class ConsulTemplate(TemplateBuilder):
                                      TerminationPolicies=['OldestLaunchConfiguration', 'OldestInstance'],
                                      # LoadBalancerNames=...  # TODO
                                      VPCZoneIdentifier=self.ui_subnet_ids,
-                                     Tags=asgtag(self.default_tags))
+                                     Tags=asgtag(self._rename('{} UI')))
         scale_out = asg.ScalingPolicy('ConsulUIScaleOutPolicy',
                                       AutoScalingGroupName=tp.Ref(group),
                                       AdjustmentType='ChangeInCapacity',
@@ -323,8 +332,6 @@ class ConsulTemplate(TemplateBuilder):
         return tp.Base64(tp.Join('', startup))  # TODO: There has GOT to be a better way to do userdata.
 
     def _create_server_metadata(self):
-        consul_dir = '/opt/consul'
-
         return cf.Metadata(
             cf.Init(
                 cf.InitConfigSets(
@@ -389,9 +396,6 @@ class ConsulTemplate(TemplateBuilder):
             commands={
                 '20_mode': {
                     'command': 'chmod 755 {}/consul'.format(consul_agent_dir)
-                },
-                '40_wait': {
-                    'command': 'while [ `ifconfig | grep "inet addr" | wc -l` -lt 3 ]; do echo "waiting for ip addr" > /opt/consul/wait && sleep 2; done'
                 },
             }
         )
@@ -485,6 +489,9 @@ class ConsulTemplate(TemplateBuilder):
                 '31_cwlogs_config': {
                     'command': 'python {0} {1}'.format(config_cwlogs_py, cwlogs_config_file)
                 },
+                '40_wait': {
+                    'command': 'while [ `ifconfig | grep "inet addr" | wc -l` -lt 3 ]; do echo "waiting for ip addr" >> /opt/consul/wait && sleep 2; done'
+                },
                 '60_cwlogs': {
                     'command': 'python /opt/cw-logs/awslogs-agent-setup.py -n -r {} -c {}'.format(self.region, cwlogs_config_file)
                 },
@@ -504,6 +511,7 @@ class ConsulTemplate(TemplateBuilder):
                 # See https://www.consul.io/docs/agent/options.html#configuration_files
                 consul_config_file: {
                     'content': {
+                        'client_addr': 'REPLACE AT RUNTIME',
                         'datacenter': self.region,
                         'data_dir': consul_data_dir,
                         'log_level': 'INFO',
