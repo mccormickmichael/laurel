@@ -67,7 +67,7 @@ class StackOperation(object):
         return stack
 
     def _upload_template(self, template_body):
-        key_name = '{}/{}'.format(self._key_prefix, self._stack_name)
+        key_name = '{}/{}.template'.format(self._key_prefix, self._stack_name)
         bucket = self._session.resource('s3').Bucket(self._bucket_name)
         bucket.put_object(Key=key_name,
                           Body=template_body)

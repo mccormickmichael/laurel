@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import argparse
+from datetime import datetime
 
 import boto3
 
@@ -11,6 +12,7 @@ from scaffold.doby import Doby
 
 
 def create_stack(args):
+    key_prefix = '{}/service-{}'.format(args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
     session = boto3.session.Session(profile_name=args.profile)
 
     outputs = stack.outputs(session, args.network_stack_name)
@@ -41,7 +43,7 @@ def create_stack(args):
         ServicesTemplate.BASTION_KEY_PARM_NAME: args.bastion_key
     }
 
-    creator = StackOperation(session, args.stack_name, template_json, args.s3_bucket, args.s3_key_prefix)
+    creator = StackOperation(session, args.stack_name, template_json, args.s3_bucket, key_prefix)
     new_stack = creator.create(stack_parms)
     results['stack_id'] = new_stack.stack_id
     results['stack_status'] = new_stack.stack_status
@@ -54,7 +56,7 @@ default_desc = 'Services Stack'
 default_bastion_type = 't2.micro'
 default_nat_type = 't2.micro'
 default_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
-default_s3_key_prefix = 'scaffold/templates'
+default_s3_key_prefix = 'scaffold'
 default_profile = 'default'
 
 

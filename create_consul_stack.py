@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import argparse
+from datetime import datetime
 import inspect
 import os
 
@@ -16,7 +17,6 @@ def upload_config(session, bucket_name, key_prefix, base_dir):
     s3 = session.resource('s3')
     bucket = s3.Bucket(bucket_name)
     base_dir = os.path.join(base_dir, 'config')
-    key_prefix = '/'.join((key_prefix, 'consul'))
     for dir_name, dir_list, file_list in os.walk(base_dir):
         for file_name in file_list:
             file_path = os.path.join(dir_name, file_name)
@@ -27,6 +27,7 @@ def upload_config(session, bucket_name, key_prefix, base_dir):
 
 
 def create_stack(args):
+    key_prefix = '{}/consul-{}'.format(args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
     session = boto3.session.Session(profile_name=args.profile)
 
     outputs = stack.outputs(session, args.network_stack_name)
@@ -40,6 +41,7 @@ def create_stack(args):
         args.stack_name,
         region=session.region_name,
         bucket=args.s3_bucket,
+        key_prefix=key_prefix,
         vpc_id=vpc_id,
         vpc_cidr=vpc_cidr,
         server_subnet_ids=private_subnet_ids,
@@ -53,18 +55,18 @@ def create_stack(args):
     template_json = template.to_json()
 
     results = {'template': template_json}
+
     basedir = os.path.dirname(inspect.getfile(ConsulTemplate))
-
-    upload_config(session, args.s3_bucket, 'scaffold', basedir)  # TODO: replace 'scaffold' with args.key_prefix
-
-    if args.dry_run:
-        return Doby(results)
+    upload_config(session, args.s3_bucket, key_prefix, basedir)
 
     stack_parms = {
         ConsulTemplate.CONSUL_KEY_PARAM_NAME: args.consul_key
     }
 
-    creator = StackOperation(session, args.stack_name, template_json, args.s3_bucket, args.s3_key_prefix)
+    creator = StackOperation(session, args.stack_name, template_json, args.s3_bucket, key_prefix)
+    if args.dry_run:
+        return Doby(results)
+
     new_stack = creator.create(stack_parms)
     results['stack_id'] = new_stack.stack_id
     results['stack_status'] = new_stack.stack_status
@@ -78,7 +80,7 @@ default_instance_type = 't2.micro'
 default_ui_instance_type = 't2.micro'
 default_cluster_size = 3
 default_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
-default_s3_key_prefix = 'scaffold/templates'
+default_s3_key_prefix = 'scaffold'
 default_profile = 'default'
 
 

@@ -37,7 +37,7 @@ from ..template import TemplateBuilder
 
 class NxNVPC(TemplateBuilder):
 
-    BUILD_PARM_NAMES = ['vpc_cidr', 'region', 'availability_zones', 'pub_size', 'priv_size']
+    BUILD_PARM_NAMES = ['vpc_cidr', 'availability_zones', 'pub_size', 'priv_size']
 
     def __init__(self, name, description='[REPLACEME]',
                  vpc_cidr='172.16.0.0/16',

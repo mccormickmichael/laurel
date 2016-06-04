@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import argparse
+from datetime import datetime
 
 import boto3
 
@@ -10,6 +11,7 @@ from scaffold.doby import Doby
 
 
 def create_stack(args):
+    key_prefix = '{}/vpc_nxn-{}'.format(args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
     session = boto3.session.Session(profile_name=args.profile)
 
     template = NxNVPC(args.stack_name,
@@ -27,7 +29,7 @@ def create_stack(args):
     if args.dry_run:
         return Doby(results)
 
-    creator = StackOperation(session, args.stack_name, template_json, args.s3_bucket, args.s3_key_prefix)
+    creator = StackOperation(session, args.stack_name, template_json, args.s3_bucket, key_prefix)
     stack = creator.create()
     results['stack_id'] = stack.stack_id
     results['stack_status'] = stack.stack_status
@@ -42,7 +44,7 @@ default_azs = ['a', 'b', 'c']
 default_pub_size = 1024
 default_priv_size = 2048
 default_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
-default_s3_key_prefix = 'scaffold/templates'
+default_s3_key_prefix = 'scaffold'
 default_profile = 'default'
 
 

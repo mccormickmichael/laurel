@@ -52,13 +52,14 @@ from ..network import net
 
 class ConsulTemplate(TemplateBuilder):
 
-    BUILD_PARM_NAMES = ['region', 'bucket', 'vpc_id', 'vpc_cidr', 'server_subnet_ids', 'ui_subnet_ids',
-                        'server_cluster_size', 'server_instance_type', 'ui_instance_type']
+    BUILD_PARM_NAMES = ['vpc_id', 'vpc_cidr', 'server_subnet_ids', 'ui_subnet_ids', 'server_cluster_size',
+                        'server_instance_type', 'ui_instance_type']
     CONSUL_KEY_PARAM_NAME = 'ConsulKey'
 
     def __init__(self, name,
                  region,
                  bucket,
+                 key_prefix,
                  vpc_id,
                  vpc_cidr,
                  server_subnet_ids,
@@ -71,6 +72,7 @@ class ConsulTemplate(TemplateBuilder):
 
         self.region = region
         self.bucket = bucket
+        self.key_prefix = key_prefix
         self.vpc_id = vpc_id
         self.vpc_cidr = vpc_cidr
         self.server_subnet_ids = server_subnet_ids
@@ -362,7 +364,7 @@ class ConsulTemplate(TemplateBuilder):
         return '{}/ui'.format(self._get_consul_dir())
 
     def _get_consul_source_prefix(self):
-        return 'http://{}.s3.amazonaws.com/scaffold/consul'.format(self.bucket)
+        return 'http://{}.s3.amazonaws.com/{}'.format(self.bucket, self.key_prefix)
 
     def _create_install_initconfig(self):
         config_consul_py = self._get_config_consul_py()
@@ -536,7 +538,8 @@ if __name__ == '__main__':
     vpc_id = sys.argv[4] if len(sys.argv) > 4 else 'vpc-deadbeef'
     vpc_cidr = sys.argv[5] if len(sys.argv) > 5 else '10.0.0.0/16'
     server_subnet_ids = sys.argv[6:] if len(sys.argv) > 6 else ['subnet-deadbeef', 'subnet-cab4abba']
+    key_prefix = 'scaffold/consul-YYYYMMDD-HHmmss'
 
-    template = ConsulTemplate(name, region, bucket, vpc_id, vpc_cidr, server_subnet_ids)
+    template = ConsulTemplate(name, region, bucket, key_prefix, vpc_id, vpc_cidr, server_subnet_ids)
     template.build_template()
     print template.to_json()

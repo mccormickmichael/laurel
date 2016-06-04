@@ -45,7 +45,7 @@ from ..network import net
 class ServicesTemplate(TemplateBuilder):
 
     BUILD_PARM_NAMES = ['vpc_id', 'vpc_cidr', 'private_route_table_id', 'public_subnet_ids',
-                        'region', 'nat_instance_type', 'bastion_instance_type']
+                        'nat_instance_type', 'bastion_instance_type']
     BASTION_KEY_PARM_NAME = 'BastionKey'
 
     def __init__(self, name,

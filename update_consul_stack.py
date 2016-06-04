@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import argparse
+from datetime import datetime
 import inspect
 import os
 
@@ -16,7 +17,6 @@ def upload_config(session, bucket_name, key_prefix, base_dir):
     s3 = session.resource('s3')
     bucket = s3.Bucket(bucket_name)
     base_dir = os.path.join(base_dir, 'config')
-    key_prefix = '/'.join((key_prefix, 'consul'))
     for dir_name, dir_list, file_list in os.walk(base_dir):
         for file_name in file_list:
             file_path = os.path.join(dir_name, file_name)
@@ -27,6 +27,7 @@ def upload_config(session, bucket_name, key_prefix, base_dir):
 
 
 def update_stack(args):
+    key_prefix = '{}/consul-{}'.format(args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
     session = boto3.session.Session(profile_name=args.profile)
 
     summary = Summary(session, args.stack_name)
@@ -35,7 +36,8 @@ def update_stack(args):
     template = ConsulTemplate(
         args.stack_name,
         region=session.region_name,
-        bucket=build_parms.bucket if args.s3_bucket is None else args.s3_bucket,
+        bucket=args.s3_bucket,
+        key_prefix=key_prefix,
         vpc_id=build_parms.vpc_id,
         vpc_cidr=build_parms.vpc_cidr,
         server_subnet_ids=build_parms.server_subnet_ids,
@@ -49,17 +51,18 @@ def update_stack(args):
     template_json = template.to_json()
 
     results = {'template': template_json}
-    if args.dry_run:
-        return Doby(results)
 
     basedir = os.path.dirname(inspect.getfile(ConsulTemplate))
-    upload_config(session, args.s3_bucket, 'scaffold', basedir)  # TODO: replace 'scaffold' with args.key_prefix
+    upload_config(session, args.s3_bucket, key_prefix, basedir)
 
     stack_parms = {}
     if args.consul_key is not None:
         stack_parms[ConsulTemplate.CONSUL_KEY_PARAM_NAME] = args.consul_key
 
-    updater = StackOperation(session, args.stack_name, template_json, args.s3_bucket, args.s3_key_prefix)
+    updater = StackOperation(session, args.stack_name, template_json, args.s3_bucket, key_prefix)
+    if args.dry_run:
+        return Doby(results)
+
     stack = updater.update(stack_parms)
     results['stack_id'] = stack.stack_id
     results['stack_status'] = stack.stack_status
@@ -69,7 +72,7 @@ def update_stack(args):
 
 
 default_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
-default_s3_key_prefix = 'scaffold/templates'
+default_s3_key_prefix = 'scaffold'
 default_profile = 'default'
 
 
