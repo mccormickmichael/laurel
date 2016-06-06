@@ -5,7 +5,7 @@ from datetime import datetime
 
 import boto3
 
-from scaffold.network.vpc_nxn import NxNVPC
+from scaffold.network.vpc_template import VpcTemplate
 from scaffold.stack.operation import StackOperation
 from scaffold.stack import Summary
 from scaffold.doby import Doby
@@ -18,7 +18,7 @@ def update_stack(args):
     summary = Summary(session, args.stack_name)
     build_parms = summary.build_parameters()
 
-    template = NxNVPC(
+    template = VpcTemplate(
         args.stack_name,
         region=session.region_name,
         description=summary.description() if args.desc is None else args.desc,

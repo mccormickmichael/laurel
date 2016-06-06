@@ -5,7 +5,7 @@ from datetime import datetime
 
 import boto3
 
-from scaffold.network.vpc_nxn import NxNVPC
+from scaffold.network.vpc_template import VpcTemplate
 from scaffold.stack.operation import StackOperation
 from scaffold.doby import Doby
 
@@ -14,13 +14,13 @@ def create_stack(args):
     key_prefix = '{}/vpc_nxn-{}'.format(args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
     session = boto3.session.Session(profile_name=args.profile)
 
-    template = NxNVPC(args.stack_name,
-                      region=session.region_name,
-                      description=args.desc,
-                      vpc_cidr=args.cidr,
-                      availability_zones=args.availability_zones,
-                      pub_size=args.pub_size,
-                      priv_size=args.priv_size)
+    template = VpcTemplate(args.stack_name,
+                           region=session.region_name,
+                           description=args.desc,
+                           vpc_cidr=args.cidr,
+                           availability_zones=args.availability_zones,
+                           pub_size=args.pub_size,
+                           priv_size=args.priv_size)
     template.build_template()
     template_json = template.to_json()
 

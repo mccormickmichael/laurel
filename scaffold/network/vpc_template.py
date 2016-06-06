@@ -35,7 +35,7 @@ from . import cidr, net
 from ..template import TemplateBuilder
 
 
-class NxNVPC(TemplateBuilder):
+class VpcTemplate(TemplateBuilder):
 
     BUILD_PARM_NAMES = ['vpc_cidr', 'availability_zones', 'pub_size', 'priv_size']
 
@@ -45,7 +45,7 @@ class NxNVPC(TemplateBuilder):
                  availability_zones=('a', 'b', 'c'),
                  pub_size=1024,
                  priv_size=2048):
-        super(NxNVPC, self).__init__(name, description, NxNVPC.BUILD_PARM_NAMES)
+        super(VpcTemplate, self).__init__(name, description, VpcTemplate.BUILD_PARM_NAMES)
 
         self.vpc_cidr = vpc_cidr
         self.vpc_cidr_alloc = cidr.CidrBlockAllocator(vpc_cidr)
@@ -55,7 +55,7 @@ class NxNVPC(TemplateBuilder):
         self.priv_size = int(priv_size)
 
     def build_template(self):
-        super(NxNVPC, self).build_template()
+        super(VpcTemplate, self).build_template()
 
         self.create_vpc()
         self.create_public_routes()
@@ -178,6 +178,6 @@ class NxNVPC(TemplateBuilder):
 
 if __name__ == '__main__':
     name = sys.argv[1] if len(sys.argv) > 1 else 'Simple'
-    template = NxNVPC(name)
+    template = VpcTemplate(name)
     template.build_template()
     print template.to_json()
