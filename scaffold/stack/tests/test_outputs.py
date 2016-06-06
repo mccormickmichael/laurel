@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import unittest
-from .. import Outputs
+from ..elements import Outputs
 
 
 class TestOutputs(unittest.TestCase):

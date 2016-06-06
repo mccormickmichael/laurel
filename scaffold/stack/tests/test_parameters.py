@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import unittest
-from .. import Parameters
+from ..elements import Parameters
 
 
 class TestParameters(unittest.TestCase):
