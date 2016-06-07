@@ -1,34 +1,11 @@
 #!/usr/bin/python
 
 import argparse
-from datetime import datetime
 
 import boto3
 
 import arguments
-from scaffold.network.vpc_template import VpcTemplate
-from scaffold.stack.creator import StackCreator
-
-
-class VpcCreator(StackCreator):
-    def __init__(self, args, session):
-        super(VpcCreator, self).__init__(args.stack_name, session)
-        self.args = args
-
-    def get_s3_bucket(self):
-        return self.args.s3_bucket
-
-    def create_s3_key_prefix(self):
-        return '{}/vpc-{}'.format(self.args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
-
-    def create_template(self, dependent_ouptuts):
-        return VpcTemplate(self.args.stack_name,
-                           region=self.get_region(),
-                           description=self.args.desc,  # TODO: which is better? more typing or more implicitness?
-                           vpc_cidr=self.args.cidr,
-                           availability_zones=self.args.availability_zones,
-                           pub_size=self.args.pub_size,
-                           priv_size=self.args.priv_size)
+from scaffold.network.vpc_creator import VpcCreator
 
 
 def create_stack(args):
