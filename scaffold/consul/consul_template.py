@@ -63,7 +63,7 @@ class ConsulTemplate(TemplateBuilder):
                  vpc_id,
                  vpc_cidr,
                  server_subnet_ids,
-                 ui_subnet_ids=[],
+                 ui_subnet_ids=(),
                  description='[REPLACEME]',
                  server_cluster_size=3,
                  server_instance_type='t2.micro',
@@ -75,8 +75,8 @@ class ConsulTemplate(TemplateBuilder):
         self.key_prefix = key_prefix
         self.vpc_id = vpc_id
         self.vpc_cidr = vpc_cidr
-        self.server_subnet_ids = server_subnet_ids
-        self.ui_subnet_ids = ui_subnet_ids
+        self.server_subnet_ids = list(server_subnet_ids)
+        self.ui_subnet_ids = list(ui_subnet_ids)
         self.server_cluster_size = int(server_cluster_size)
         self.server_instance_type = server_instance_type
         self.ui_instance_type = ui_instance_type

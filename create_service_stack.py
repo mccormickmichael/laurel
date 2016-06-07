@@ -7,50 +7,52 @@ import boto3
 
 import arguments
 from scaffold import stack
-from scaffold.stack.operation import StackOperation
+from scaffold.stack.creator import StackCreator
 from scaffold.services.services_template import ServicesTemplate
-from scaffold.doby import Doby
+
+
+class ServicesCreator(StackCreator):
+    def __init__(self, args, session):
+        super(ServicesCreator, self).__init__(args.stack_name, session)
+        self.args = args
+
+    def get_s3_bucket(self):
+        return self.args.s3_bucket
+
+    def create_s3_key_prefix(self):
+        return '{}/services-{}'.format(self.args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
+
+    def get_dependencies(self, dependencies):
+        outputs = stack.outputs(self.session, self.args.network_stack_name)
+
+        dependencies.vpc_id = outputs['VpcId']
+        dependencies.vpc_cidr = outputs['VpcCidr']
+        dependencies.priv_rt_id = outputs['PrivateRT']
+        dependencies.public_subnet_ids = outputs.values(lambda k: 'PublicSubnet' in k)
+
+        return dependencies
+
+    def create_template(self, dependencies):
+        return ServicesTemplate(
+            self.stack_name,
+            description=self.args.desc,
+            vpc_id=dependencies.vpc_id,
+            vpc_cidr=dependencies.vpc_cidr,
+            private_route_table_id=dependencies.priv_rt_id,
+            public_subnet_ids=dependencies.public_subnet_ids,
+            bastion_instance_type=self.args.bastion_type,
+            nat_instance_type=self.args.nat_type
+        )
+
+    def get_stack_parameters(self):
+        return {
+            ServicesTemplate.BASTION_KEY_PARM_NAME: self.args.bastion_key
+        }
 
 
 def create_stack(args):
-    key_prefix = '{}/service-{}'.format(args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
-    session = boto3.session.Session(profile_name=args.profile)
-
-    outputs = stack.outputs(session, args.network_stack_name)
-
-    vpc_id = outputs['VpcId']
-    vpc_cidr = outputs['VpcCidr']
-    priv_rt_id = outputs['PrivateRT']
-    pub_subnet_ids = outputs.values(lambda k: 'PublicSubnet' in k)
-
-    template = ServicesTemplate(
-        args.stack_name,
-        description=args.desc,
-        vpc_id=vpc_id,
-        vpc_cidr=vpc_cidr,
-        private_route_table_id=priv_rt_id,
-        public_subnet_ids=pub_subnet_ids,
-        bastion_instance_type=args.bastion_type,
-        nat_instance_type=args.nat_type
-    )
-    template.build_template()
-    template_json = template.to_json()
-
-    results = {'template': template_json}
-    if args.dry_run:
-        return Doby(results)
-
-    stack_parms = {
-        ServicesTemplate.BASTION_KEY_PARM_NAME: args.bastion_key
-    }
-
-    creator = StackOperation(session, args.stack_name, template_json, args.s3_bucket, key_prefix)
-    new_stack = creator.create(stack_parms)
-    results['stack_id'] = new_stack.stack_id
-    results['stack_status'] = new_stack.stack_status
-    results['stack_status_reason'] = new_stack.stack_status_reason
-    # the return values here suck. How can we do better?
-    return Doby(results)
+    creator = ServicesCreator(args, boto3.session.Session(profile_name=args.profile))
+    return creator.create(args.dry_run)
 
 
 default_desc = 'Services Stack'
@@ -86,10 +88,10 @@ def get_args():
 if __name__ == '__main__':
     args = get_args()
     results = create_stack(args)
-    if args.dry_run:
+    if results.dry_run:
         print results.template
     else:
-        print 'ID:     ', results.stack_id
-        print 'STATUS: ', results.stack_status
-        if results.stack_status_reason is not None:
-            print 'REASON: ', results.stack_status_reason
+        print 'ID:     ', results.stack.stack_id
+        print 'STATUS: ', results.stack.stack_status
+        if results.stack.stack_status_reason is not None:
+            print 'REASON: ', results.stack.stack_status_reason

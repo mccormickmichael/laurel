@@ -61,7 +61,7 @@ class ServicesTemplate(TemplateBuilder):
 
         self.vpc_id = vpc_id
         self.vpc_cidr = vpc_cidr
-        self.public_subnet_ids = public_subnet_ids
+        self.public_subnet_ids = list(public_subnet_ids)
         self.private_route_table_id = private_route_table_id
         self.region = region
         self.nat_instance_type = nat_instance_type

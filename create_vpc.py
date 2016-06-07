@@ -7,36 +7,33 @@ import boto3
 
 import arguments
 from scaffold.network.vpc_template import VpcTemplate
-from scaffold.stack.operation import StackOperation
-from scaffold.doby import Doby
+from scaffold.stack.creator import StackCreator
+
+
+class VpcCreator(StackCreator):
+    def __init__(self, args, session):
+        super(VpcCreator, self).__init__(args.stack_name, session)
+        self.args = args
+
+    def get_s3_bucket(self):
+        return self.args.s3_bucket
+
+    def create_s3_key_prefix(self):
+        return '{}/vpc-{}'.format(self.args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
+
+    def create_template(self, dependent_ouptuts):
+        return VpcTemplate(self.args.stack_name,
+                           region=self.get_region(),
+                           description=self.args.desc,  # TODO: which is better? more typing or more implicitness?
+                           vpc_cidr=self.args.cidr,
+                           availability_zones=self.args.availability_zones,
+                           pub_size=self.args.pub_size,
+                           priv_size=self.args.priv_size)
 
 
 def create_stack(args):
-    key_prefix = '{}/vpc_nxn-{}'.format(args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
-    session = boto3.session.Session(profile_name=args.profile)
-
-    template = VpcTemplate(args.stack_name,
-                           region=session.region_name,
-                           description=args.desc,
-                           vpc_cidr=args.cidr,
-                           availability_zones=args.availability_zones,
-                           pub_size=args.pub_size,
-                           priv_size=args.priv_size)
-    template.build_template()
-    template_json = template.to_json()
-
-    results = {'template': template_json}
-
-    if args.dry_run:
-        return Doby(results)
-
-    creator = StackOperation(session, args.stack_name, template_json, args.s3_bucket, key_prefix)
-    stack = creator.create()
-    results['stack_id'] = stack.stack_id
-    results['stack_status'] = stack.stack_status
-    results['stack_status_reason'] = stack.stack_status_reason
-    # the return values here suck. How can we do better?
-    return Doby(results)
+    creator = VpcCreator(args, boto3.session.Session(profile_name=args.profile))
+    return creator.create(args.dry_run)
 
 
 default_desc = 'Network Stack'
@@ -74,10 +71,10 @@ def get_args():
 if __name__ == "__main__":
     args = get_args()
     results = create_stack(args)
-    if args.dry_run:
+    if results.dry_run:
         print results.template
     else:
-        print 'ID:     ', results.stack_id
-        print 'STATUS: ', results.stack_status
-        if results.stack_status_reason is not None:
-            print 'REASON: ', results.stack_status_reason
+        print 'ID:     ', results.stack.stack_id
+        print 'STATUS: ', results.stack.stack_status
+        if results.stack.stack_status_reason is not None:
+            print 'REASON: ', results.stack.stack_status_reason
