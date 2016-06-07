@@ -1,53 +1,11 @@
 #!/usr/bin/python
 
 import argparse
-from datetime import datetime
 
 import boto3
 
 import arguments
-from scaffold import stack
-from scaffold.stack.builder import StackBuilder
-from scaffold.services.services_template import ServicesTemplate
-
-
-class ServicesBuilder(StackBuilder):
-    def __init__(self, args, session):
-        super(ServicesBuilder, self).__init__(args.stack_name, session)
-        self.args = args
-
-    def get_s3_bucket(self):
-        return self.args.s3_bucket
-
-    def create_s3_key_prefix(self):
-        return '{}/services-{}'.format(self.args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
-
-    def get_dependencies(self, dependencies):
-        outputs = stack.outputs(self.session, self.args.network_stack_name)
-
-        dependencies.vpc_id = outputs['VpcId']
-        dependencies.vpc_cidr = outputs['VpcCidr']
-        dependencies.priv_rt_id = outputs['PrivateRT']
-        dependencies.public_subnet_ids = outputs.values(lambda k: 'PublicSubnet' in k)
-
-        return dependencies
-
-    def create_template(self, dependencies):
-        return ServicesTemplate(
-            self.stack_name,
-            description=self.args.desc,
-            vpc_id=dependencies.vpc_id,
-            vpc_cidr=dependencies.vpc_cidr,
-            private_route_table_id=dependencies.priv_rt_id,
-            public_subnet_ids=dependencies.public_subnet_ids,
-            bastion_instance_type=self.args.bastion_type,
-            nat_instance_type=self.args.nat_type
-        )
-
-    def get_stack_parameters(self):
-        return {
-            ServicesTemplate.BASTION_KEY_PARM_NAME: self.args.bastion_key
-        }
+from scaffold.services.services_builder import ServicesBuilder
 
 
 def create_stack(args):
