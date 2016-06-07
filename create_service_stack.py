@@ -71,11 +71,11 @@ def get_args():
 
     st = ap.add_argument_group('Stack definitions')
     st.add_argument('--desc', default=default_desc,
-                    help='Stack description. Strongy encouraged.')
+                    help=arguments.generate_help('Stack description.', default_desc))
     st.add_argument('--bastion-type', default=default_bastion_type,
-                    help='Instance type of the Bastion server. Default: {}'.format(default_bastion_type))
+                    help=arguments.generate_help('Instance type of the Bastion server.', default_bastion_type))
     st.add_argument('--nat-type', default=default_nat_type,
-                    help='Instance type of the NAT server. Default: {}'.format(default_nat_type))
+                    help=arguments.generate_help('Instance type of the NAT server.', default_nat_type))
 
     arguments.add_deployment_group(ap)
     arguments.add_security_control_group(ap)

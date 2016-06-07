@@ -91,17 +91,17 @@ def get_args():
     req.add_argument('network_stack_name',
                      help='Name of the network stack')
     req.add_argument('--consul-key', required=True,
-                     help='Name of the key pair used to access the Consul cluster instances. Required.')
+                     help='Name of the key pair used to access the Consul cluster instances.')
 
     st = ap.add_argument_group('Stack definitions')
     st.add_argument('--desc', default=default_desc,
-                    help='Stack description. Strongy encouraged.')
+                    help=arguments.generate_help('Stack description.', default_desc))
     st.add_argument('--instance-type', default=default_instance_type,
-                    help='Instance type for the Consul servers. Default: {}'.format(default_instance_type))
+                    help=arguments.generate_help('Instance type for the Consul servers.', default_instance_type))
     st.add_argument('--ui-instance-type', default=default_ui_instance_type,
-                    help='Instance type for the Consul UI servers. Default: {}'.format(default_ui_instance_type))
+                    help=arguments.generate_help('Instance type for the Consul UI servers.', default_ui_instance_type))
     st.add_argument('--cluster_size', default=default_cluster_size,
-                    help='Number of instances in the Consul cluster. Should be an odd number > 1. Default: {}'.format(default_cluster_size))
+                    help=arguments.generate_help('Number of instances in the Consul cluster. Should be an odd number > 1.', default_cluster_size))
     arguments.add_deployment_group(ap)
     arguments.add_security_control_group(ap)
     return ap.parse_args()

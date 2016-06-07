@@ -81,7 +81,7 @@ def get_args():
 
     st = ap.add_argument_group('Stack definitions')
     st.add_argument('--desc',
-                    help='Stack description. Strongy encouraged.')
+                    help='Stack description.')
     st.add_argument('--consul-key',
                     help='Name of the key pair used to access the Consul cluster instances.')
     st.add_argument('--instance-type',

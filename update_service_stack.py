@@ -61,7 +61,7 @@ def get_args():
 
     st = ap.add_argument_group('Stack definitions')
     st.add_argument('--desc',
-                    help='Stack description. Strongy encouraged.')
+                    help='Stack description.')
     st.add_argument('--bastion-type',
                     help='Instance type of the Bastion server.')
     st.add_argument('--nat-type',

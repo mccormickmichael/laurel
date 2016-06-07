@@ -47,7 +47,7 @@ def update_stack(args):
 
 
 def get_args():
-    ap = argparse.ArgumentParser(description='''Update a CloudFormation stack created with 'create_vpc_nxn'.''',
+    ap = argparse.ArgumentParser(description='''Update a CloudFormation stack created with 'create_vpc'.''',
                                  add_help=False)
     ap.add_argument("stack_name",
                     help='Name of the network stack to create')

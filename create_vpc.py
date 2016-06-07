@@ -47,7 +47,7 @@ default_priv_size = 2048
 
 
 def get_args():
-    ap = argparse.ArgumentParser(description='Create a VPC and Network CloudFormation stack with N public and N private subnets',
+    ap = argparse.ArgumentParser(description='Create a VPC CloudFormation stack with N public and private subnets',
                                  add_help=False)
     req = ap.add_argument_group('Required arguments')
     req.add_argument("stack_name",
@@ -55,15 +55,15 @@ def get_args():
 
     st = ap.add_argument_group('Stack definitions')
     st.add_argument('--desc', default=default_desc,
-                    help='Stack description. Strongy encouraged.')
+                    help=arguments.generate_help('Stack description.', default_desc))
     st.add_argument('--cidr', default=default_cidr,
-                    help='CIDR block of the VPC. Default: {}'.format(default_cidr))
+                    help=arguments.generate_help('CIDR block of the VPC.', default_cidr))
     st.add_argument('--availability-zones', default=default_azs, nargs='+', metavar='AZ',
-                    help='Space-separated list of availability zones to use. Will determine the number of subnets. Default: {}'.format(default_azs))
+                    help=arguments.generate_help('Space-separated list of availability zones to use. Will determine the number of subnets.', default_azs))
     st.add_argument('--pub-size', default=default_pub_size, type=int, metavar='SIZE',
-                    help='Size of the public subnets. Default: {}'.format(default_pub_size))
+                    help=arguments.generate_help('Size of the public subnets.', default_pub_size))
     st.add_argument('--priv-size', default=default_priv_size, type=int, metavar='SIZE',
-                    help='Size of the private subnets. Default: {}'.format(default_priv_size))
+                    help=arguments.generate_help('Size of the private subnets.', default_priv_size))
 
     arguments.add_deployment_group(ap)
     arguments.add_security_control_group(ap)

@@ -1,5 +1,3 @@
-import argparse
-
 default_profile = 'default'
 default_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
 default_s3_key_prefix = 'scaffold'
@@ -37,7 +35,7 @@ def add_security_control_group(argparser,
     return group
 
 
-def generate_help(message, default, use_default=True):
+def generate_help(message, default=None, use_default=True):
     if use_default:
-        message = '{} Default: "{}"'.format(message, default)
+        message = '{} Default: {}'.format(message, default)
     return message
