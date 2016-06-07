@@ -5,6 +5,7 @@ from datetime import datetime
 
 import boto3
 
+import arguments
 from scaffold.services.services_template import ServicesTemplate
 from scaffold.stack.operation import StackOperation
 from scaffold.stack import Summary
@@ -49,37 +50,25 @@ def update_stack(args):
     return Doby(results)
 
 
-default_bastion_type = 't2.micro'
-default_nat_type = 't2.micro'
-default_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
-default_s3_key_prefix = 'scaffold'
-default_profile = 'default'
-
-
 def get_args():
-    ap = argparse.ArgumentParser(description='''Update a CloudFormation stack created with 'create_service_stack'.''')
-    ap.add_argument("stack_name",
-                    help='Name of the service stack to update')
+    ap = argparse.ArgumentParser(description='''Update a CloudFormation stack created with 'create_service_stack'.''',
+                                 add_help=False)
+    req = ap.add_argument_group('Required')
+    req.add_argument("stack_name",
+                     help='Name of the service stack to update')
+    req.add_argument('--bastion-key', required=True,
+                     help='Name of the key pair to access the bastion server.')
 
-    ap.add_argument('--desc',
+    st = ap.add_argument_group('Stack definitions')
+    st.add_argument('--desc',
                     help='Stack description. Strongy encouraged.')
-    ap.add_argument('--bastion-key', required=True,
-                    help='Name of the key pair to access the bastion server. Required.')
-    ap.add_argument('--bastion-type', default=default_bastion_type,
-                    help='Instance type of the Bastion server. Default: {}'.format(default_bastion_type))
-    ap.add_argument('--nat-type', default=default_nat_type,
-                    help='Instance type of the NAT server. Default: {}'.format(default_nat_type))
+    st.add_argument('--bastion-type',
+                    help='Instance type of the Bastion server.')
+    st.add_argument('--nat-type',
+                    help='Instance type of the NAT server.')
 
-
-    ap.add_argument('--s3-bucket', default=default_s3_bucket,
-                    help='Name of the S3 bucket to which stack template files are uploaded. Default: {}'.format(default_s3_bucket))
-    ap.add_argument('--s3-key-prefix', default=default_s3_key_prefix,
-                    help='Prefix to use when uploading stack template files to the bucket. Default: {}'.format(default_s3_key_prefix))
-
-    ap.add_argument('--profile', default=default_profile,
-                    help='AWS Credential and Config profile to use. Default: {}'.format(default_profile))
-    ap.add_argument('--dry-run', default=False, action='store_true',
-                    help='Output the generated stack template. Take no action.')
+    arguments.add_deployment_group(ap)
+    arguments.add_security_control_group(ap)
     return ap.parse_args()
 
 

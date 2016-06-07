@@ -7,7 +7,8 @@ import os
 
 import boto3
 
-from scaffold.stack import Parameters, Summary
+import arguments
+from scaffold.stack import Summary
 from scaffold.stack.operation import StackOperation
 from scaffold.consul.consul_template import ConsulTemplate
 from scaffold.doby import Doby
@@ -71,37 +72,26 @@ def update_stack(args):
     return Doby(results)
 
 
-default_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
-default_s3_key_prefix = 'scaffold'
-default_profile = 'default'
-
-
 def get_args():
-    ap = argparse.ArgumentParser(description='Create a CloudFormation stack hosting a Consul cluster')
-    ap.add_argument('stack_name',
-                    help='Name of the Consul stack to create')
+    ap = argparse.ArgumentParser(description='Create a CloudFormation stack hosting a Consul cluster',
+                                 add_help=False)
+    req = ap.add_argument_group('Required')
+    req.add_argument('stack_name',
+                     help='Name of the Consul stack to create')
 
-    ap.add_argument('--desc',
+    st = ap.add_argument_group('Stack definitions')
+    st.add_argument('--desc',
                     help='Stack description. Strongy encouraged.')
-    ap.add_argument('--consul-key',
+    st.add_argument('--consul-key',
                     help='Name of the key pair used to access the Consul cluster instances.')
-    ap.add_argument('--instance-type',
+    st.add_argument('--instance-type',
                     help='Instance type for the Consul servers.')
-    ap.add_argument('--ui-instance-type',
+    st.add_argument('--ui-instance-type',
                     help='Instance type for the Consul UI servers.')
-    ap.add_argument('--cluster_size',
+    st.add_argument('--cluster_size',
                     help='Number of instances in the Consul cluster. Should be an odd number > 1.')
-
-    ap.add_argument('--s3-bucket', default=default_s3_bucket,
-                    help='Name of the S3 bucket to which stack template files are uploaded. Default: {}'.format(default_s3_bucket))
-    ap.add_argument('--s3-key-prefix', default=default_s3_key_prefix,
-                    help='Prefix to use when uploading stack template files to the bucket. Default: {}'.format(default_s3_key_prefix))
-
-
-    ap.add_argument('--profile', default=default_profile,
-                    help='AWS Credential and Config profile to use. Default: {}'.format(default_profile))
-    ap.add_argument('--dry-run', action='store_true', default=False,
-                    help='Echo the parameters to be used to create the stack; take no action')
+    arguments.add_deployment_group(ap)
+    arguments.add_security_control_group(ap)
     return ap.parse_args()
 
 if __name__ == '__main__':
@@ -114,4 +104,3 @@ if __name__ == '__main__':
         print 'STATUS: ', results.stack_status
         if results.stack_status_reason is not None:
             print 'REASON: ', results.stack_status_reason
-
