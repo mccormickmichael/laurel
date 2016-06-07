@@ -6,13 +6,13 @@ from datetime import datetime
 import boto3
 
 import arguments
-from scaffold.network.vpc_creator import VpcCreator
+from scaffold.network.vpc_builder import VpcBuilder
 
 
 def update_stack(args):
     session = boto3.session.Session(profile_name=args.profile)
-    builder = VpcCreator(args, session, True)
-    return builder.create(args.dry_run)
+    builder = VpcBuilder(args, session, True)
+    return builder.build(args.dry_run)
 
 
 def get_args():
@@ -24,7 +24,7 @@ def get_args():
 
     st = ap.add_argument_group('Stack definitions')
     st.add_argument('--desc',
-                    help='Stack description. Strongy encouraged.')
+                    help='Stack description.')
     st.add_argument('--cidr',
                     help='CIDR block of the VPC.')
     st.add_argument('--availability-zones', nargs='+', metavar='AZ',

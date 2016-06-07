@@ -7,13 +7,13 @@ import boto3
 
 import arguments
 from scaffold import stack
-from scaffold.stack.creator import StackCreator
+from scaffold.stack.builder import StackBuilder
 from scaffold.services.services_template import ServicesTemplate
 
 
-class ServicesCreator(StackCreator):
+class ServicesBuilder(StackBuilder):
     def __init__(self, args, session):
-        super(ServicesCreator, self).__init__(args.stack_name, session)
+        super(ServicesBuilder, self).__init__(args.stack_name, session)
         self.args = args
 
     def get_s3_bucket(self):
@@ -51,8 +51,9 @@ class ServicesCreator(StackCreator):
 
 
 def create_stack(args):
-    creator = ServicesCreator(args, boto3.session.Session(profile_name=args.profile))
-    return creator.create(args.dry_run)
+    session = boto3.session.Session(profile_name=args.profile)
+    builder = ServicesBuilder(args, session, False)
+    return builder.build(args.dry_run)
 
 
 default_desc = 'Services Stack'

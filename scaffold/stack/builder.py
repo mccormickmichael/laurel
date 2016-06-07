@@ -22,13 +22,13 @@ class Parameters(object):
 
 
 # TODO: use the new abstract method pattern with abc
-class StackCreator(object):
-    def __init__(self, stack_name, boto3_session, update=False):
+class StackBuilder(object):
+    def __init__(self, stack_name, boto3_session, is_update):
         self.stack_name = stack_name
         self.session = boto3_session
-        self._update = update
+        self._is_update = is_update
 
-    def create(self, dry_run=False):
+    def build(self, dry_run=False):
         s3_key_prefix = self.create_s3_key_prefix()
 
         dependencies = Dependencies()
@@ -78,7 +78,7 @@ class StackCreator(object):
         return p
 
     def is_update(self):
-        return self._update
+        return self._is_update
 
     def get_region(self):
         return self.session.region_name

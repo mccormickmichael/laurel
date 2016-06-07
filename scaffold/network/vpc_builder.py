@@ -1,12 +1,12 @@
 from datetime import datetime
 
 from .vpc_template import VpcTemplate
-from ..stack.creator import StackCreator
+from ..stack.builder import StackCreator
 
 
-class VpcCreator(StackCreator):
-    def __init__(self, args, session, update):
-        super(VpcCreator, self).__init__(args.stack_name, session, update)
+class VpcBuilder(StackCreator):
+    def __init__(self, args, session, is_update):
+        super(VpcBuilder, self).__init__(args.stack_name, session, is_update)
         self.args = args
 
     def get_s3_bucket(self):

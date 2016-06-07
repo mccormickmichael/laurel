@@ -5,12 +5,13 @@ import argparse
 import boto3
 
 import arguments
-from scaffold.network.vpc_creator import VpcCreator
+from scaffold.network.vpc_builder import VpcBuilder
 
 
 def create_stack(args):
-    creator = VpcCreator(args, boto3.session.Session(profile_name=args.profile))
-    return creator.create(args.dry_run)
+    session = boto3.session.Session(profile_name=args.profile)
+    builder = VpcBuilder(args, session, False)
+    return builder.build(args.dry_run)
 
 
 default_desc = 'Network Stack'

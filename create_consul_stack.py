@@ -9,13 +9,13 @@ import boto3
 
 import arguments
 from scaffold import stack
-from scaffold.stack.creator import StackCreator
+from scaffold.stack.builder import StackBuilder
 from scaffold.consul.consul_template import ConsulTemplate
 
 
-class ConsulCreator(StackCreator):
+class ConsulBuilder(StackBuilder):
     def __init__(self, args, session):
-        super(ConsulCreator, self).__init__(args.stack_name, session)
+        super(ConsulBuilder, self).__init__(args.stack_name, session)
         self.args = args
 
     def get_s3_bucket(self):
@@ -69,8 +69,9 @@ class ConsulCreator(StackCreator):
 
 
 def create_stack(args):
-    creator = ConsulCreator(args, boto3.session.Session(profile_name=args.profile))
-    return creator.create(args.dry_run)
+    session = boto3.session.Session(profile_name=args.profile)
+    builder = ConsulBuilder(args, session, False)
+    return builder.build(args.dry_run)
 
 
 default_desc = 'Consul Stack'
