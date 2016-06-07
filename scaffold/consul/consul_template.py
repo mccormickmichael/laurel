@@ -88,20 +88,21 @@ class ConsulTemplate(TemplateBuilder):
 
         self.create_logstreams()
 
+        self.create_consul_sg()
         self.create_server_cluster()
         if len(self.ui_subnet_ids) > 0:
             self.create_ui_cluster()
 
     def create_server_cluster(self):
-        self.server_sg = self.create_server_sg()
+        server_sg = self.create_server_sg()
         self.iam_profile = self.create_server_iam_profile()
         server_subnet_len = len(self.server_subnet_ids)
         self.server_enis = [
-            self.create_server_eni(i, self.server_sg, self.server_subnet_ids[i % server_subnet_len])
+            self.create_server_eni(i, self.server_subnet_ids[i % server_subnet_len])
             for i in range(self.server_cluster_size)
         ]
         self.server_asgs = [
-            self.create_server_asg(i, self.server_sg, self.iam_profile,
+            self.create_server_asg(i, server_sg, self.iam_profile,
                                    self.server_subnet_ids[i % server_subnet_len], self.server_enis[i])
             for i in range(self.server_cluster_size)
         ]
@@ -114,10 +115,10 @@ class ConsulTemplate(TemplateBuilder):
     def create_parameters(self):
         self.add_parameter(tp.Parameter(self.CONSUL_KEY_PARAM_NAME, Type='String'))
 
-    def create_server_eni(self, index, security_group, subnet_id):
+    def create_server_eni(self, index, subnet_id):
         eni = ec2.NetworkInterface('Consul{}ENI'.format(index),
                                    Description='ENI for Consul cluster member {}'.format(index),
-                                   GroupSet=[tp.Ref(security_group)],
+                                   GroupSet=[tp.Ref(self.consul_sg)],
                                    SourceDestCheck=True,
                                    SubnetId=subnet_id,
                                    Tags=self._rename('{} ENI-'+str(index)))
@@ -126,24 +127,24 @@ class ConsulTemplate(TemplateBuilder):
         return eni
 
     def create_server_sg(self):
-        rules = self._create_consul_sg_rules() + [
+        rules = [
             net.sg_rule(self.vpc_cidr, net.SSH, net.TCP)
         ]
 
-        sg = ec2.SecurityGroup('ConsulSecurityGroup',
-                               GroupDescription='Consul Instance Security Group',
+        sg = ec2.SecurityGroup('ConsulServerSecurityGroup',
+                               GroupDescription='Consul Server Instance Security Group',
                                SecurityGroupIngress=rules,
                                VpcId=self.vpc_id,
                                Tags=self.default_tags)
         self.add_resource(sg)
         return sg
 
-    def create_server_asg(self, index, security_group, iam_profile, subnet_id, eni):
+    def create_server_asg(self, index, instance_sg, iam_profile, subnet_id, eni):
         lc_name = self._server_lc_name(index)
         lc = asg.LaunchConfiguration(lc_name,
                                      ImageId=tp.FindInMap(AMI_REGION_MAP_NAME, self.region, 'GENERAL'),
                                      InstanceType=self.server_instance_type,
-                                     SecurityGroups=[tp.Ref(security_group)],
+                                     SecurityGroups=[tp.Ref(instance_sg)],
                                      KeyName=tp.Ref(self.CONSUL_KEY_PARAM_NAME),
                                      IamInstanceProfile=tp.Ref(iam_profile),
                                      InstanceMonitoring=False,
@@ -164,17 +165,23 @@ class ConsulTemplate(TemplateBuilder):
     def _server_asg_name(self, index):
         return 'Consul{}ASG'.format(index)
 
-    def _create_consul_sg_rules(self):
+    def create_consul_sg(self):
         # see https://www.consul.io/docs/agent/options.html#ports-used
-        # TODO: could create this as a separate SG, then all agents can a
-        return [
+        ingress_rules = [
             net.sg_rule(self.vpc_cidr, port, net.TCP) for port in (53, (8300, 8302), 8400, 8500, 8600)
         ] + [
             net.sg_rule(self.vpc_cidr, port, net.UDP) for port in ((8301, 8302), 8600)
         ]
+        self.consul_sg = ec2.SecurityGroup('ConsulAgentSecurityGroup',
+                                           GroupDescription='Security group for Cosul Agents',
+                                           SecurityGroupIngress=ingress_rules,
+                                           VpcId=self.vpc_id,
+                                           Tags=self.default_tags)
+        self.add_resource(self.consul_sg)
+        self.add_output(tp.Output('ConsulAgentSG', Value=tp.Ref(self.consul_sg)))
 
     def create_ui_sg(self):
-        ingress_rules = self._create_consul_sg_rules() + [
+        ingress_rules = [
             net.sg_rule(net.CIDR_ANY, port, net.TCP) for port in [net.HTTP, net.HTTPS]
         ] + [
             net.sg_rule(self.vpc_cidr, net.SSH, net.TCP)
@@ -189,11 +196,11 @@ class ConsulTemplate(TemplateBuilder):
         self.add_resource(sg)
         return sg
 
-    def create_ui_asg(self, security_group, iam_profile):
+    def create_ui_asg(self, instance_sg, iam_profile):
         lc = asg.LaunchConfiguration('ConsulUILC',
                                      ImageId=tp.FindInMap(AMI_REGION_MAP_NAME, self.region, 'GENERAL'),
                                      InstanceType=self.ui_instance_type,
-                                     SecurityGroups=[tp.Ref(security_group)],
+                                     SecurityGroups=[tp.Ref(self.consul_sg), tp.Ref(instance_sg)],
                                      KeyName=tp.Ref(self.CONSUL_KEY_PARAM_NAME),
                                      IamInstanceProfile=tp.Ref(iam_profile),
                                      InstanceMonitoring=False,
@@ -538,8 +545,9 @@ if __name__ == '__main__':
     vpc_id = sys.argv[4] if len(sys.argv) > 4 else 'vpc-deadbeef'
     vpc_cidr = sys.argv[5] if len(sys.argv) > 5 else '10.0.0.0/16'
     server_subnet_ids = sys.argv[6:] if len(sys.argv) > 6 else ['subnet-deadbeef', 'subnet-cab4abba']
+    ui_subnet_ids = server_subnet_ids
     key_prefix = 'scaffold/consul-YYYYMMDD-HHmmss'
 
-    template = ConsulTemplate(name, region, bucket, key_prefix, vpc_id, vpc_cidr, server_subnet_ids)
+    template = ConsulTemplate(name, region, bucket, key_prefix, vpc_id, vpc_cidr, server_subnet_ids, ui_subnet_ids)
     template.build_template()
     print template.to_json()
