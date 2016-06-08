@@ -8,8 +8,8 @@ from .consul_template import ConsulTemplate
 
 
 class ConsulBuilder(StackBuilder):
-    def __init__(self, args, session):
-        super(ConsulBuilder, self).__init__(args.stack_name, session)
+    def __init__(self, args, session, is_update):
+        super(ConsulBuilder, self).__init__(args.stack_name, session, is_update)
         self.args = args
 
     def get_s3_bucket(self):

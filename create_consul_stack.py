@@ -24,8 +24,8 @@ def get_args():
     ap = argparse.ArgumentParser(description='Create a CloudFormation stack hosting a Consul cluster',
                                  add_help=False)
     req = ap.add_argument_group('Required')
-    ap.add_argument('stack_name',
-                    help='Name of the Consul stack to create')
+    req.add_argument('stack_name',
+                     help='Name of the Consul stack to create')
     req.add_argument('network_stack_name',
                      help='Name of the network stack')
     req.add_argument('--consul-key', required=True,
