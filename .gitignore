@@ -60,6 +60,7 @@ target/
 *~
 \#*\#
 .idea
+.ropeproject
 
 #OS X
 .DS_Store
