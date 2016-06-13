@@ -54,9 +54,7 @@ class VpcTemplate(TemplateBuilder):
         self.pub_size = int(pub_size)
         self.priv_size = int(priv_size)
 
-    def build_template(self):
-        super(VpcTemplate, self).build_template()
-
+    def internal_build_template(self):
         self.create_vpc()
         self.create_public_routes()
         self.create_public_nacl()

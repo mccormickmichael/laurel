@@ -67,9 +67,7 @@ class ServicesTemplate(TemplateBuilder):
         self.nat_instance_type = nat_instance_type
         self.bastion_instance_type = bastion_instance_type
 
-    def build_template(self):
-        super(ServicesTemplate, self).build_template()
-
+    def internal_build_template(self):
         self.create_parameters()
 
         self.create_nat()

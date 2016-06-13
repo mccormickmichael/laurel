@@ -57,6 +57,7 @@ class TemplateBuilder(object):
     def build_template(self):
         self.template = self._init_template()
         self._add_build_parms()
+        self.internal_build_template()
 
     def to_json(self):
         return self.template.to_json()
@@ -84,6 +85,9 @@ class TemplateBuilder(object):
     def restore_build_parms(self, parms):
         for attr, value in parms.iteritems():
             setattr(self, attr, value)
+
+    def internal_build_template(self):
+        pass
 
     def _init_template(self):
         template = tp.Template()

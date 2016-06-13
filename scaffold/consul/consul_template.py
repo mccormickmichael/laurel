@@ -81,9 +81,7 @@ class ConsulTemplate(TemplateBuilder):
         self.server_instance_type = server_instance_type
         self.ui_instance_type = ui_instance_type
 
-    def build_template(self):
-        super(ConsulTemplate, self).build_template()
-
+    def internal_build_template(self):
         self.create_parameters()
 
         self.create_logstreams()
