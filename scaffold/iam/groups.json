@@ -1,0 +1,14 @@
+{
+    "WebsiteDevelopers": [
+	"arn:aws:iam::aws:policy/AmazonS3FullAccess",
+	"arn:aws:iam::aws:policy/AmazonRoute53FullAccess"
+    ],
+    "MachinePublisher": [
+    ],
+    "Administrators": [
+	"arn:aws:iam::aws:policy/AdministratorAccess",
+	"LocalPolicyName"
+    ]
+}
+    
+

@@ -1,0 +1,17 @@
+{
+  "AssumeRolePolicyDocument":
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+	"Effect": "Allow",
+	"Action": ["sts:AssumeRole"],
+	"Principal": { "AWS": {"Fn::Join": ["", ["arn:aws:iam::", {"Ref": "AWS::AccountId"}, ":role/", {"Ref": "InfrastructureDevRole"}]]}}
+      }
+    ]
+  },
+  "ManagedPolicyArns": [
+    "ManageCloudformationStacks"
+  ],
+  "Path": "/"
+}
