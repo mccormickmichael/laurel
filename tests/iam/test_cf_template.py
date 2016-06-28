@@ -2,6 +2,7 @@ import inspect
 import os
 import unittest
 
+import troposphere as tp
 import troposphere.iam as iam
 
 from scaffold.iam.cf_template import IAMTemplate
@@ -41,22 +42,40 @@ class TestIAMTemplate(unittest.TestCase):
         self.assertEqual(expected_files, actual_files)
 
     def test_resource_name_should_match_file_name_from_path(self):
-        resource_name = self.template._resource_name('/path/to/resource.name')
+        resource_name = self.template._base_name('/path/to/resource.name')
         self.assertEqual('resource', resource_name)
 
     def test_should_create_policy_resource(self):
-        policy = self.template.get_policy('alls3')
+        policy = self.template.get_policy('AllS3')
         self.assertIsNotNone(policy)
 
     def test_should_add_policy_as_resource(self):
-        resource = self.template.template.resources.get('alls3Policy')
+        resource = self.template.template.resources.get('AllS3Policy')
         self.assertIsNotNone(resource)
 
     def test_should_add_policy_as_output(self):
-        output = self.template.template.outputs.get('alls3Policy')
+        output = self.template.template.outputs.get('AllS3Policy')
         self.assertIsNotNone(output)
 
     def test_all_policies_should_be_managed_policies(self):
         policies = [v for k, v in self.template.template.resources.items() if k.endswith('Policy')]
         for p in policies:
             self.assertIsInstance(p, iam.ManagedPolicy, 'Policy named {} should be of type {} but was {}'.format(p.title, iam.ManagedPolicy, p.__class__))
+
+    def test_should_add_group_as_resource(self):
+        resource = self.template.template.resources.get('MixedGroup')
+        self.assertIsNotNone(resource)
+
+    def test_group_should_resolve_local_policy_as_ref(self):
+        resource = self.template.template.resources.get('LocalGroup')
+        policy = resource.ManagedPolicyArns[0]
+        self.assertIsInstance(policy, tp.Ref)
+
+    def test_group_should_handle_arn_policy(self):
+        resource = self.template.template.resources.get('ARNOnlyGroup')
+        policy = resource.ManagedPolicyArns[0]
+        self.assertIsInstance(policy, basestring)
+        self.assertTrue(policy.startswith('arn:'))
+
+    # users
+    # roles

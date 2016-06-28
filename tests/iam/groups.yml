@@ -1,0 +1,7 @@
+Mixed:
+  - arn:aws:iam::aws:policy/AmazonS3FullAccess
+  - AllS3
+Local:
+  - AllowAll
+ARNOnly:
+  - arn:aws:iam::aws:policy/AmazonS3FullAccess
