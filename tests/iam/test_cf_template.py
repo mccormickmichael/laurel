@@ -62,20 +62,4 @@ class TestIAMTemplate(unittest.TestCase):
         for p in policies:
             self.assertIsInstance(p, iam.ManagedPolicy, 'Policy named {} should be of type {} but was {}'.format(p.title, iam.ManagedPolicy, p.__class__))
 
-    def test_should_add_group_as_resource(self):
-        resource = self.template.template.resources.get('MixedGroup')
-        self.assertIsNotNone(resource)
-
-    def test_group_should_resolve_local_policy_as_ref(self):
-        resource = self.template.template.resources.get('LocalGroup')
-        policy = resource.ManagedPolicyArns[0]
-        self.assertIsInstance(policy, tp.Ref)
-
-    def test_group_should_handle_arn_policy(self):
-        resource = self.template.template.resources.get('ARNOnlyGroup')
-        policy = resource.ManagedPolicyArns[0]
-        self.assertIsInstance(policy, basestring)
-        self.assertTrue(policy.startswith('arn:'))
-
-    # users
-    # roles
+    # service roles

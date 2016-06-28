@@ -1,7 +1,0 @@
-human/WebsiteDevelopers:
-  - arn:aws:iam::aws:policy/AmazonS3FullAccess
-  - arn:aws:iam::aws:policy/AmazonRoute53FullAccess
-human/Administrators:
-  - arn:aws:iam::aws:policy/AdministratorAccess
-  - LocalPolicyName
-machine/MachinePublisher: [] # MachinePublisher does not have any policies attached yet.

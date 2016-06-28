@@ -22,7 +22,6 @@ class IAMTemplate(TemplateBuilder):
         self._base_dir = base_dir
         self._discover_policy_files()
         self._policies = {}
-        self._groups = {}
 
     def _discover_policy_files(self):
         self._policy_files = self._discover_files_under('policies')
@@ -41,7 +40,6 @@ class IAMTemplate(TemplateBuilder):
 
     def internal_build_template(self):
         self.create_policies()
-        self.create_groups()
 
     def create_policies(self):
         for policy_file in self._policy_files:
@@ -54,17 +52,6 @@ class IAMTemplate(TemplateBuilder):
             self._policies[policy_name] = policy
             self.add_resource(policy)
             self.add_output(tp.Output(resource_name, Value=tp.Ref(policy)))
-
-    def create_groups(self):
-        with open(os.path.join(self._base_dir, 'groups.yml')) as f:
-            groups = yaml.load(f)
-
-        for group_name, policies in groups.items():
-            resource_name = '{}Group'.format(group_name)
-            group = iam.Group(resource_name,
-                              ManagedPolicyArns=[self._arn_or_ref(p, self._policies) for p in policies])
-            self._groups[group_name] = group
-            self.add_resource(group)
 
     def get_policy(self, policy_name):
         return self._policies[policy_name]
