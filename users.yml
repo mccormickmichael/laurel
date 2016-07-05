@@ -1,0 +1,11 @@
+michael:
+  - Administrators # TODO: remove this from regular users
+
+kieran:
+  - WebsiteDevelopers
+
+megan:
+  - WebsiteDevelopers
+
+machine-travis:
+  - MachinePublisher

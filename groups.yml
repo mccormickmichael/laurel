@@ -1,0 +1,8 @@
+Administrators:
+  - AdministratorAccess
+
+MachinePublisher: []
+
+WebsiteDevelopers:
+  - AmazonS3FullAccess
+  - AmazonRoute53FullAcces
