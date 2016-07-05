@@ -3,7 +3,7 @@
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": "cloudformation:*",
+      "Action": ["cloudformation:Create*", "cloudformation:Get*", "cloudformation:Update*", "cloudformation:ValidateTemplate", "cloudformation:Describe*", "cloudformation:Cancel*"],
       "Resource": "*"
     },
     {
