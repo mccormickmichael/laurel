@@ -1,5 +1,5 @@
 michael:
-  - Administrators # TODO: remove this from regular users
+  - InfrastructureDevelopers
 
 kieran:
   - WebsiteDevelopers

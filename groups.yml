@@ -6,3 +6,6 @@ MachinePublisher: []
 WebsiteDevelopers:
   - AmazonS3FullAccess
   - AmazonRoute53FullAccess
+
+InfrastructureDevelopers:
+  - ManageCloudformationStacksPolicy
