@@ -42,7 +42,7 @@ def update_users(args, session):
 def update_roles(args, session):
     with open(args.roles, 'r') as f:
         roles = yaml.load(f)
-    synchronizer = RoleSync(session)
+    synchronizer = RoleSync(session, args.iam_stack)
     synchronizer.sync(roles, args.dry_run)
     # TODO: results? Provide list of roles impacted?
 

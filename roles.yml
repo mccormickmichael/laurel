@@ -1,0 +1,6 @@
+Superman:
+  Principal:
+    users:
+      - michael
+  Policies:
+    - AdministratorAccess

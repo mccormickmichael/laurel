@@ -17,3 +17,17 @@ def load_policy_map(boto3_session, iam_stack_name=None):
             policy_map[k] = outputs[k]
 
     return policy_map
+
+
+def create_user_arns(account_id, users):
+    return create_iam_arns(account_id, 'user', users)
+
+
+def create_role_arns(account_id, roles):
+    return create_iam_arns(account_id, 'role', roles)
+
+
+def create_iam_arns(account_id, prefix, items):
+    if isinstance(items, basestring):
+        items = [items]
+    return ['arn:aws:iam::{}:{}/{}'.format(account_id, prefix, i) for i in items]
