@@ -1,7 +1,7 @@
 import json
 import logging
 
-from . import load_policy_map, create_user_arns, create_role_arns
+from . import load_policy_map, create_user_arns, create_role_arns, matches_aws_policy_doc
 
 
 class RoleSync(object):
@@ -35,8 +35,11 @@ class RoleSync(object):
                 logging.info('detaching policy %s from role %s', policy.policy_name, role.name)
                 if not dry_run:
                     role.detach_policy(PolicyArn=policy.arn)
-            # TODO: look for Instance Profiles
-            # TODO: look for Inline Policies
+
+            self._delete_instance_profiles(role, dry_run)
+
+            # TODO: look for Inline Policies. Should not have any if the role is managed by us.
+
             logging.info('deleting role %s', role.name)
             if not dry_run:
                 role.delete()
@@ -51,30 +54,66 @@ class RoleSync(object):
                 # TODO: call this even if dry-run flag is set, but pass something else
                 policy_names_to_attach = role_info.get('Policies', [])
                 self._attach_policies(role, policy_names_to_attach, dry_run)
+                # TODO: call this even if dry-run flag is set, but pass something else
+                if role_info.get('InstanceProfile', False):
+                    self._create_instance_profile(role, dry_run)
 
     def update_roles(self, roles, roles_dict, dry_run):
         for role in roles:
             role_info = roles_dict[role.name]
             logging.info('updating role %s', role.name)
-            logging.info('not updating role %s because unimplemented', role.name)
 
             assume_role_policy_doc = self._create_assumerolepolicydocument(role_info)
-            if not dry_run:
-                role.AssumeRolePolicy().update(assume_role_policy_doc)
+            if matches_aws_policy_doc(assume_role_policy_doc, role.assume_role_policy_document):
+                logging.debug('AssumeRolePolicyDocument has not changed. No need to update.')
+            else:
+                logging.info('Updating AssumeRolePolicyDocument for role %s', role.name)
+                if not dry_run:
+                    role.AssumeRolePolicy().update(PolicyDocument=assume_role_policy_doc)
 
-            self._update_policies(role, role_info, dry_run)
+            self._update_policies(role, role_info.get('Policies', []), dry_run)
+            self._update_instance_profile(role, role_info.get('InstanceProfile', False), dry_run)
 
-    def _update_policies(self, role, role_dict, dry_run):
+    def _update_policies(self, role, defined_policy_names, dry_run):
         role_policies = role.attached_policies.all()
 
         current_policy_names = [r.policy_name for r in role_policies]
-        defined_policy_names = role_dict.get('Policies', [])
+
+        logging.debug('current policies: {}'.format(sorted(current_policy_names)))
+        logging.debug('defined policies: {}'.format(sorted(defined_policy_names)))
 
         policy_names_to_attach = [p for p in defined_policy_names if p not in current_policy_names]
         policy_names_to_detach = [p for p in current_policy_names if p not in defined_policy_names]
 
         self._detach_policies(role, policy_names_to_detach, dry_run)
         self._attach_policies(role, policy_names_to_attach, dry_run)
+
+    def _create_instance_profile(self, role, dry_run):
+        logging.info('creating instance profile for role %s', role.name)
+        if not dry_run:
+            profile = self._iam.create_instance_profile(InstanceProfileName=role.name)
+            profile.add_role(RoleName=role.name)
+
+    def _update_instance_profile(self, role, should_have_profile, dry_run):
+        profiles = list(role.instance_profiles.all())
+        if (should_have_profile):
+            if len(profiles) == 0:
+                self._create_instance_profile(role, dry_run)
+            else:
+                logging.debug('role %s already has an instance profile. no action', role.name)
+        else:
+            if len(profiles) == 0:
+                logging.debug('role %s does not have an instance profile. no action.', role.name)
+            else:
+                logging.info('deleting instance profiles for role %s', role.name)
+                self._delete_instance_profiles(role, dry_run)
+
+    def _delete_instance_profiles(self, role, dry_run):
+        for profile in role.instance_profiles.all():
+            logging.info('deleting instance profile %s for role %s', profile.name, role.name)
+            if not dry_run:
+                profile.remove_role(RoleName=role.name)
+                profile.delete()
 
     def get_policy_arn(self, policy_name):
         return self._policy_map[policy_name]

@@ -4,3 +4,4 @@ Superman:
       - michael
   Policies:
     - AdministratorAccess
+  InstanceProfile: False

@@ -1,3 +1,7 @@
+import ast
+import collections
+import json
+
 from scaffold.stack.elements import Outputs
 
 
@@ -19,6 +23,12 @@ def load_policy_map(boto3_session, iam_stack_name=None):
     return policy_map
 
 
+def matches_aws_policy_doc(policy_doc_json_text, aws_policy_doc_dict):
+    # aws policy doc dicts have embedded unicode. Coerce them to valid json
+    aws_policy_json_text = json.dumps(aws_policy_doc_dict)
+    return policy_doc_json_text == aws_policy_json_text
+
+
 def create_user_arns(account_id, users):
     return create_iam_arns(account_id, 'user', users)
 
@@ -30,4 +40,8 @@ def create_role_arns(account_id, roles):
 def create_iam_arns(account_id, prefix, items):
     if isinstance(items, basestring):
         items = [items]
-    return ['arn:aws:iam::{}:{}/{}'.format(account_id, prefix, i) for i in items]
+    arns = ['arn:aws:iam::{}:{}/{}'.format(account_id, prefix, i) for i in items]
+    # 1-element arn lists are stripped by AWS, we should do the same.
+    if len(arns) == 1:
+        return arns[0]
+    return arns

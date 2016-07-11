@@ -3,6 +3,9 @@ Administrators:
 
 MachinePublisher: []
 
+Developers:
+  - ReadOnlyAccess
+
 WebsiteDevelopers:
   - AmazonS3FullAccess
   - AmazonRoute53FullAccess
