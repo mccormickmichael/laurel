@@ -1,5 +1,7 @@
-# Update the users and groups based on the users.yml and groups.yml files.
+# Update the users and groups and roles based on the users.yml and groups.yml and roles.yml files.
 # Users missing from users.yml are not deleted.
+# Groups missing from groups.yml are not deleted.
+
 
 import argparse
 import logging
@@ -10,6 +12,7 @@ import yaml
 import arguments
 from scaffold.iam.group_sync import GroupSync
 from scaffold.iam.user_sync import UserSync
+from scaffold.iam.role_sync import RoleSync
 
 
 def get_session(args):
@@ -37,7 +40,11 @@ def update_users(args, session):
 
 
 def update_roles(args, session):
-    pass
+    with open(args.roles, 'r') as f:
+        roles = yaml.load(f)
+    synchronizer = RoleSync(session)
+    synchronizer.sync(roles, args.dry_run)
+    # TODO: results? Provide list of roles impacted?
 
 
 def parse_args():
@@ -47,6 +54,8 @@ def parse_args():
                     help='Name of the users.yml file')
     ap.add_argument('--groups', default='groups.yml',
                     help='Name of the groups.yml file')
+    ap.add_argument('--roles', default='roles.yml',
+                    help='Name of the roles.yml file')
     ap.add_argument('--iam-stack', default=None,
                     help='Name of the IAM Cloudformation stack, if any.')
     ap.add_argument('--region', default='us-west-2',
@@ -57,7 +66,7 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     for name in ['boto3', 'botocore']:
         logging.getLogger(name).setLevel(logging.WARN)  # MEH.
     args = parse_args()
