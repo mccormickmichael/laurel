@@ -1,7 +1,8 @@
 import json
 import logging
 
-from . import load_policy_map
+from . import load_policy_map, create_user_arns, create_role_arns
+
 
 class RoleSync(object):
     def __init__(self, boto3_session,
@@ -107,22 +108,13 @@ class RoleSync(object):
     def _create_assume_role_principal(self, principal):
         # special cases
         if principal.get('users') is not None:
-            return {'AWS': self._create_user_arns(self._get_account_id(), principal.get('users'))}
+            return {'AWS': create_user_arns(self._get_account_id(), principal.get('users'))}
 
         if principal.get('roles') is not None:
-            return {'AWS': self._create_role_arns(self._get_account_id(), principal.get('roles'))}
+            return {'AWS': create_role_arns(self._get_account_id(), principal.get('roles'))}
 
         # otherwise, return principal unchanged. It's your fault if there are too many elements
         return principal
-
-    def _create_role_arns(self, account_id, roles):
-        return self._create_iam_arns(account_id, 'role', roles)
-
-    def _create_user_arns(self, account_id, users):
-        return self._create_iam_arns(account_id, 'user', users)
-
-    def _create_iam_arns(self, account_id, prefix, items):
-        return ['arn:aws:iam::{}:{}/{}'.format(account_id, prefix, i) for i in items]
 
     def _get_account_id(self):
         # Not sure this is the best way to do it.

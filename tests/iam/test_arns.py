@@ -3,7 +3,7 @@ import unittest
 from scaffold.iam import create_user_arns
 
 
-class TestRoleSync(unittest.TestCase):
+class TestARNs(unittest.TestCase):
 
     def test_create_user_arn_single(self):
         arns = create_user_arns('1234567890', 'biggles')
