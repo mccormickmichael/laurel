@@ -1,5 +1,7 @@
 import logging
 
+logger = logging.getLogger('iam.UserSync')
+
 
 class UserSync(object):
     def __init__(self, boto3_session):
@@ -12,8 +14,8 @@ class UserSync(object):
         defined_user_names = user_dict.keys()
         current_user_names = [u.name for u in current_users]
 
-        logging.info('current users: {}'.format(sorted(current_user_names)))
-        logging.info('defined users: {}'.format(sorted(defined_user_names)))
+        logger.info('current users: {}'.format(sorted(current_user_names)))
+        logger.info('defined users: {}'.format(sorted(defined_user_names)))
 
         users_to_create = [u for u in defined_user_names if u not in current_user_names]
         users_to_update = [u for u in current_users if u.name in defined_user_names]
@@ -24,11 +26,11 @@ class UserSync(object):
     def create_users(self, names, user_dict, dry_run):
         # TODO: honor dry_run parameter
         for name in names:
-            logging.info('creating user {}'.format(name))
+            logger.info('creating user {}'.format(name))
             user = self._iam.create_user(UserName=name)
             group_names = user_dict[name]
             for group_name in group_names:
-                logging.info('adding {} to group {}'.format(name, group_name))
+                logger.info('adding {} to group {}'.format(name, group_name))
                 user.add_group(GroupName=group_name)
 
     def update_users(self, users, user_dict, dry_run):
@@ -45,8 +47,8 @@ class UserSync(object):
                                   if g not in current_group_names]
 
             for name in group_names_to_remove:
-                logging.info('removing group {} from user {}'.format(name, user.name))
+                logger.info('removing group {} from user {}'.format(name, user.name))
                 user.remove_group(GroupName=name)
             for name in group_names_to_add:
-                logging.info('adding group {} to user {}'.format(name, user.name))
+                logger.info('adding group {} to user {}'.format(name, user.name))
                 user.add_group(GroupName=name)

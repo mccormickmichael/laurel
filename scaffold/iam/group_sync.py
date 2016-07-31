@@ -3,6 +3,8 @@ import logging
 from scaffold.stack.elements import Outputs
 from . import load_policy_map
 
+logger = logging.getLogger('iam.GroupSync')
+
 
 class GroupSync(object):
     def __init__(self, boto3_session,
@@ -17,8 +19,8 @@ class GroupSync(object):
         defined_group_names = group_dict.keys()
         current_group_names = [g.name for g in current_groups]
 
-        logging.info('current groups: {}'.format(sorted(current_group_names)))
-        logging.info('defined groups: {}'.format(sorted(defined_group_names)))
+        logger.info('current groups: {}'.format(sorted(current_group_names)))
+        logger.info('defined groups: {}'.format(sorted(defined_group_names)))
 
         groups_to_create = [g for g in defined_group_names if g not in current_group_names]
         groups_to_update = [g for g in current_groups if g.name in defined_group_names]
@@ -30,10 +32,10 @@ class GroupSync(object):
         # TODO: honor dry_run parameter
         for name in names:
             policy_names = group_dict[name]
-            logging.info('creating group {}'.format(name))
+            logger.info('creating group {}'.format(name))
             group = self._iam.create_group(GroupName=name)
             for policy_name in policy_names:
-                logging.info('attaching policy {} to group {}'.format(policy_name, name))
+                logger.info('attaching policy {} to group {}'.format(policy_name, name))
                 group.attach_policy(PolicyArn=self.get_policy_arn(policy_name))
 
     def update_groups(self, groups, group_dict, dry_run):
@@ -54,11 +56,11 @@ class GroupSync(object):
                                       if p not in current_policy_names]
 
             for arn in policy_arns_to_detach:
-                logging.info('detaching {} from group {}'.format(arn, group.name))
+                logger.info('detaching {} from group {}'.format(arn, group.name))
                 group.detach_policy(PolicyArn=arn)
             for name in policy_names_to_attach:
                 arn = self.get_policy_arn(name)
-                logging.info('attaching {} to group {}'.format(arn, group.name))
+                logger.info('attaching {} to group {}'.format(arn, group.name))
                 group.attach_policy(PolicyArn=arn)
 
     def get_policy_arn(self, policy_name):

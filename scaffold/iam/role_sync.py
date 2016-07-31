@@ -3,6 +3,8 @@ import logging
 
 from . import load_policy_map, create_user_arns, create_role_arns, matches_aws_policy_doc
 
+logger = logging.getLogger('iam.RoleSync')
+
 
 class RoleSync(object):
     def __init__(self, boto3_session,
@@ -17,8 +19,8 @@ class RoleSync(object):
         defined_role_names = roles_dict.keys()
         current_role_names = [r.name for r in current_roles]
 
-        logging.debug('current roles: {}'.format(sorted(current_role_names)))
-        logging.debug('defined roles: {}'.format(sorted(defined_role_names)))
+        logger.debug('current roles: {}'.format(sorted(current_role_names)))
+        logger.debug('defined roles: {}'.format(sorted(defined_role_names)))
 
         roles_to_create = {r: roles_dict[r] for r in defined_role_names if r not in current_role_names}
         roles_to_delete = [r for r in current_roles if r.name not in defined_role_names]
@@ -32,7 +34,7 @@ class RoleSync(object):
         for role in roles:
             policies = role.attached_policies.all()
             for policy in policies:
-                logging.info('detaching policy %s from role %s', policy.policy_name, role.name)
+                logger.info('detaching policy %s from role %s', policy.policy_name, role.name)
                 if not dry_run:
                     role.detach_policy(PolicyArn=policy.arn)
 
@@ -40,14 +42,14 @@ class RoleSync(object):
 
             # TODO: look for Inline Policies. Should not have any if the role is managed by us.
 
-            logging.info('deleting role %s', role.name)
+            logger.info('deleting role %s', role.name)
             if not dry_run:
                 role.delete()
 
     def create_roles(self, roles, dry_run):
         for role_name, role_info in roles.items():
             assume_role_policy_doc = self._create_assumerolepolicydocument(role_info)
-            logging.info('creating role %s', role_name)
+            logger.info('creating role %s', role_name)
             if not dry_run:
                 role = self._iam.create_role(RoleName=role_name,
                                              AssumeRolePolicyDocument=assume_role_policy_doc)
@@ -61,13 +63,13 @@ class RoleSync(object):
     def update_roles(self, roles, roles_dict, dry_run):
         for role in roles:
             role_info = roles_dict[role.name]
-            logging.info('updating role %s', role.name)
+            logger.info('updating role %s', role.name)
 
             assume_role_policy_doc = self._create_assumerolepolicydocument(role_info)
             if matches_aws_policy_doc(assume_role_policy_doc, role.assume_role_policy_document):
-                logging.debug('AssumeRolePolicyDocument has not changed. No need to update.')
+                logger.debug('AssumeRolePolicyDocument has not changed. No need to update.')
             else:
-                logging.info('Updating AssumeRolePolicyDocument for role %s', role.name)
+                logger.info('Updating AssumeRolePolicyDocument for role %s', role.name)
                 if not dry_run:
                     role.AssumeRolePolicy().update(PolicyDocument=assume_role_policy_doc)
 
@@ -79,8 +81,8 @@ class RoleSync(object):
 
         current_policy_names = [r.policy_name for r in role_policies]
 
-        logging.debug('current policies: {}'.format(sorted(current_policy_names)))
-        logging.debug('defined policies: {}'.format(sorted(defined_policy_names)))
+        logger.debug('current policies: {}'.format(sorted(current_policy_names)))
+        logger.debug('defined policies: {}'.format(sorted(defined_policy_names)))
 
         policy_names_to_attach = [p for p in defined_policy_names if p not in current_policy_names]
         policy_names_to_detach = [p for p in current_policy_names if p not in defined_policy_names]
@@ -89,7 +91,7 @@ class RoleSync(object):
         self._attach_policies(role, policy_names_to_attach, dry_run)
 
     def _create_instance_profile(self, role, dry_run):
-        logging.info('creating instance profile for role %s', role.name)
+        logger.info('creating instance profile for role %s', role.name)
         if not dry_run:
             profile = self._iam.create_instance_profile(InstanceProfileName=role.name)
             profile.add_role(RoleName=role.name)
@@ -100,17 +102,17 @@ class RoleSync(object):
             if len(profiles) == 0:
                 self._create_instance_profile(role, dry_run)
             else:
-                logging.debug('role %s already has an instance profile. no action', role.name)
+                logger.debug('role %s already has an instance profile. no action', role.name)
         else:
             if len(profiles) == 0:
-                logging.debug('role %s does not have an instance profile. no action.', role.name)
+                logger.debug('role %s does not have an instance profile. no action.', role.name)
             else:
-                logging.info('deleting instance profiles for role %s', role.name)
+                logger.info('deleting instance profiles for role %s', role.name)
                 self._delete_instance_profiles(role, dry_run)
 
     def _delete_instance_profiles(self, role, dry_run):
         for profile in role.instance_profiles.all():
-            logging.info('deleting instance profile %s for role %s', profile.name, role.name)
+            logger.info('deleting instance profile %s for role %s', profile.name, role.name)
             if not dry_run:
                 profile.remove_role(RoleName=role.name)
                 profile.delete()
@@ -120,13 +122,13 @@ class RoleSync(object):
 
     def _detach_policies(self, role, policy_names, dry_run):
         for policy_name in policy_names:
-            logging.info('detaching policy %s from role %s', policy_name, role.name)
+            logger.info('detaching policy %s from role %s', policy_name, role.name)
             if not dry_run:
                 role.detach_policy(PolicyArn=self.get_policy_arn(policy_name))
 
     def _attach_policies(self, role, policy_names, dry_run):
         for policy_name in policy_names:
-            logging.info('attaching policy %s to role %s', policy_name, role.name)
+            logger.info('attaching policy %s to role %s', policy_name, role.name)
             if not dry_run:
                 role.attach_policy(PolicyArn=self.get_policy_arn(policy_name))
 

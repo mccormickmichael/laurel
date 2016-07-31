@@ -3,7 +3,7 @@
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["iam:CreateAccessKey", "iam:DeleteAccessKey"],
+      "Action": ["iam:*AccessKey*"],
       "Resource": "arn:aws:iam::${account_id}:user/${aws:username}"
     }
   ]

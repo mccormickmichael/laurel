@@ -1,6 +1,7 @@
 import ast
 import collections
 import json
+import types
 
 from scaffold.stack.elements import Outputs
 
@@ -23,10 +24,13 @@ def load_policy_map(boto3_session, iam_stack_name=None):
     return policy_map
 
 
-def matches_aws_policy_doc(policy_doc_json_text, aws_policy_doc_dict):
-    # aws policy doc dicts have embedded unicode. Coerce them to valid json
-    aws_policy_json_text = json.dumps(aws_policy_doc_dict)
-    return policy_doc_json_text == aws_policy_json_text
+def matches_aws_policy_doc(lhs, rhs):
+    # assume anything that's a string is serialized json.
+    if isinstance(lhs, types.StringTypes):
+        lhs = json.loads(lhs)
+    if isinstance(rhs, types.StringTypes):
+        rhs = json.loads(rhs)
+    return deep_ordered(lhs) == deep_ordered(rhs)
 
 
 def create_user_arns(account_id, users):
@@ -45,3 +49,12 @@ def create_iam_arns(account_id, prefix, items):
     if len(arns) == 1:
         return arns[0]
     return arns
+
+
+def deep_ordered(obj):
+    '''Deep orders nested dicts and lists (e.g. parsed json) so they can be compared.'''
+    if isinstance(obj, dict):
+        return sorted((k, deep_ordered(v)) for k, v in obj.items())
+    if isinstance(obj, list):
+        return sorted(deep_ordered(x) for x in obj)
+    return obj

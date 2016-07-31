@@ -9,6 +9,7 @@ class TestPolicySync(unittest.TestCase):
 
     def setUp(self):
         self.mock_session = lambda: 0
+        self.mock_session.resource = lambda r: r  # TODO: mock this out better. That it has to exist is stinky enough.
         self.policy_dir = os.path.join(os.path.dirname(inspect.getfile(TestPolicySync)), 'policies')
 
     def test_discover_policy_files(self):
