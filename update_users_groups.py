@@ -5,6 +5,7 @@
 
 import argparse
 import logging
+import os.path
 
 import boto3
 import yaml
@@ -19,12 +20,24 @@ def get_session(args):
     return boto3.session.Session(profile_name=args.profile, region_name=args.region)
 
 
-def update_policies(args, session):
-    pass
+def userspath(basedir):
+    return os.path.join(basedir, 'users.yml')
+
+
+def groupspath(basedir):
+    return os.path.join(basedir, 'groups.yml')
+
+
+def rolespath(basedir):
+    return os.path.join(basedir, 'roles.yml')
+
+
+def policypath(basedir):
+    return os.path.join(basedir, 'policies')
 
 
 def update_groups(args, session):
-    with open(args.groups, 'r') as f:
+    with open(groupspath(args.basedir), 'r') as f:
         groups = yaml.load(f)
     synchronizer = GroupSync(session, args.iam_stack)
     synchronizer.sync(groups, args.dry_run)
@@ -32,7 +45,7 @@ def update_groups(args, session):
 
 
 def update_users(args, session):
-    with open(args.users, 'r') as f:
+    with open(userspath(args.basedir), 'r') as f:
         users = yaml.load(f)
     synchronizer = UserSync(session)
     synchronizer.sync(users, args.dry_run)
@@ -40,22 +53,22 @@ def update_users(args, session):
 
 
 def update_roles(args, session):
-    with open(args.roles, 'r') as f:
+    with open(rolespath(args.basedir), 'r') as f:
         roles = yaml.load(f)
     synchronizer = RoleSync(session, args.iam_stack)
     synchronizer.sync(roles, args.dry_run)
     # TODO: results? Provide list of roles impacted?
 
 
+def update_policies(args, session):
+    pass
+
+
 def parse_args():
-    ap = argparse.ArgumentParser(description='Update users and groups',
+    ap = argparse.ArgumentParser(description='Update IAM elements: users, groups, roles, policies',
                                  add_help=False)
-    ap.add_argument('--users', default='users.yml',
-                    help='Name of the users.yml file')
-    ap.add_argument('--groups', default='groups.yml',
-                    help='Name of the groups.yml file')
-    ap.add_argument('--roles', default='roles.yml',
-                    help='Name of the roles.yml file')
+    ap.add_argument('basedir',
+                    help='Directory containing IAM elements files. See security/README for details')
     ap.add_argument('--iam-stack', default=None,
                     help='Name of the IAM Cloudformation stack, if any.')
     ap.add_argument('--region', default='us-west-2',
@@ -65,11 +78,31 @@ def parse_args():
     return ap.parse_args()
 
 
+def validate_args(args):
+    errors = []
+    up = userspath(args.basedir)
+    if not os.path.isfile(up):
+        errors.append('The users file {} does not exist'.format(up))
+    gp = groupspath(args.basedir)
+    if not os.path.isfile(gp):
+        errors.append('The groups file {} does not exist'.format(gp))
+    rp = rolespath(args.basedir)
+    if not os.path.isfile(rp):
+        errors.append('The roles file {} does not exist'.format(rp))
+    pp = policypath(args.basedir)
+    if not os.path.isdir(pp):
+        errors.append('The policy directory {} does not exist'.format(pp))
+
+    if errors:
+        raise ValueError('Unable to update elements: \n  {}'.format('\n  '.join(errors)))
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     for name in ['boto3', 'botocore']:
         logging.getLogger(name).setLevel(logging.WARN)  # MEH.
     args = parse_args()
+    validate_args(args)
     session = get_session(args)
     update_policies(args, session)
     update_groups(args, session)
