@@ -1,7 +1,21 @@
-Superman:
+Sudoer:
   Principal:
     users:
-      - michael
+      - alice
+      - bob
   Policies:
     - AdministratorAccess
   InstanceProfile: False
+
+WebPortal:
+  Principal:
+    Service: ec2.amazonaws.com
+  Policies:
+    - AmazonDynamoDBReadOnlyAccess
+  InstanceProfile: True
+
+CrossAccountAuditor:
+  Principal
+    AWS: arn:aws:iam::123456789012:role/auditor
+  Policies:
+    - ReadOnlyAccess

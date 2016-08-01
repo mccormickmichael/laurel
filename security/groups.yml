@@ -1,9 +1,5 @@
-Administrators:
-  - AdministratorAccess
-
-MachinePublisher: []
-
 Developers:
+  - user-manage-iam-keys
   - ReadOnlyAccess
 
 WebsiteDevelopers:
@@ -11,4 +7,8 @@ WebsiteDevelopers:
   - AmazonRoute53FullAccess
 
 InfrastructureDevelopers:
-  - ManageCloudformationStacksPolicy
+  - user-manage-cloudformation-stacks
+
+MachinePublisher:
+  - machine-deploy-s3
+

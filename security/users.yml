@@ -1,12 +1,8 @@
-michael:
+alice:
   - InfrastructureDevelopers
   - Developers
 
-kieran:
-  - WebsiteDevelopers
-  - Developers
-
-megan:
+bob:
   - WebsiteDevelopers
   - Developers
 

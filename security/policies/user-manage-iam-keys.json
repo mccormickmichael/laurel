@@ -4,7 +4,7 @@
     {
       "Effect": "Allow",
       "Action": ["iam:*AccessKey*"],
-      "Resource": "arn:aws:iam::${account_id}:user/${aws:username}"
+      "Resource": "arn:aws:iam::594696750723:user/${aws:username}"
     }
   ]
 }
