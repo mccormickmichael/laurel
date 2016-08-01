@@ -1,4 +1,5 @@
 default_profile = 'default'
+default_region_name = 'us-west-2'
 default_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
 default_s3_key_prefix = 'scaffold'
 
@@ -6,6 +7,7 @@ s3_bucket_help = 'Name of the S3 bucket to which stack template files are upload
 s3_key_prefix_help = 'Prefix to use when uploading stack template files to the bucket.'
 
 profile_help = 'AWS Credential and Config profile to use.'
+region_help = 'Region to connect to. Required if profile is specified.'
 dry_run_help = 'Report on what would have happened. Take no mutable action.'
 
 
@@ -27,6 +29,8 @@ def add_security_control_group(argparser,
     group = argparser.add_argument_group('Security and control')
     group.add_argument('--profile', default=default_profile_name,
                        help=generate_help(profile_help, default_profile_name))
+    group.add_argument('--region', default=default_region_name,
+                       help=generate_help(region_help, default_region_name))
     group.add_argument('--dry-run', default=False, action='store_true',
                        help='Report on what would have happened. Take no mutable action.')
     if add_help:

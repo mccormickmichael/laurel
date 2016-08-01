@@ -69,7 +69,6 @@ class VpcTemplate(TemplateBuilder):
         for az in self.availability_zones:
             self.create_public_subnets_in_az(az)
 
-
     def create_vpc(self):
         self.vpc = tp.ec2.VPC('{}VPC'.format(self.name),
                               CidrBlock=self.vpc_cidr,

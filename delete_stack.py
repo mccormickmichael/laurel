@@ -5,11 +5,12 @@ import argparse
 
 import boto3
 
+from arguments import generate_help, add_security_control_group
 from scaffold.stack.operation import StackDeleter
 
 
 def delete_stack(args):
-    session = boto3.session.Session(profile_name=args.profile)
+    session = boto3.session.Session(profile_name=args.profile, region_name=args.region)
 
     deleter = StackDeleter(session, args.stack_name)
     if args.dry_run:
@@ -21,17 +22,14 @@ def delete_stack(args):
 
 
 default_profile = 'default'
+default_region = 'us-west-2'
 
 
 def get_args():
-    ap = argparse.ArgumentParser(description='Delete a CloudFormation stack')
+    ap = argparse.ArgumentParser(description='Delete a CloudFormation stack', add_help=False)
     ap.add_argument('stack_name',
                     help='Name of the stack to delete')
-
-    ap.add_argument('--profile', default=default_profile,
-                    help='AWS Credential and Config profile to use. Default: {}'.format(default_profile))
-    ap.add_argument('--dry-run', action='store_true', default=False,
-                    help='Validate permissions and parameters. Take no action.')
+    add_security_control_group(ap)
     return ap.parse_args()
 
 

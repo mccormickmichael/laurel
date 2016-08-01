@@ -55,7 +55,7 @@ class TemplateBuilder(object):
         self.build_parm_attrs = build_parm_attrs
 
     def build_template(self):
-        self.template = self._init_template()
+        self._init_template()
         self._add_build_parms()
         self.internal_build_template()
 
@@ -89,11 +89,15 @@ class TemplateBuilder(object):
     def internal_build_template(self):
         pass
 
+    def internal_add_mappings(self):
+        self.template.add_mapping(AMI_REGION_MAP_NAME, AMI_REGION_MAP)
+
     def _init_template(self):
         template = tp.Template()
+        self.template = template
         template.add_version()
         template.add_description(self.description)
-        template.add_mapping(AMI_REGION_MAP_NAME, AMI_REGION_MAP)
+        self.internal_add_mappings()
         return template
 
     def _add_build_parms(self):

@@ -73,8 +73,6 @@ def parse_args():
                     help='Directory containing IAM elements files. See security/README for details')
     ap.add_argument('--iam-stack', default=None,
                     help='Name of the IAM Cloudformation stack, if any.')
-    ap.add_argument('--region', default='us-west-2',
-                    help='Region to connect to. Default: us-west-2')
     arguments.add_security_control_group(ap)
 
     return ap.parse_args()

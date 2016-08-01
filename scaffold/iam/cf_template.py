@@ -1,9 +1,6 @@
-import inspect
-import json
-import os
-import yaml
 
-import troposphere.iam as iam
+import troposphere.cloudtrail as ct
+import troposphere.s3 as s3
 import troposphere as tp
 
 from scaffold.template import TemplateBuilder
@@ -11,58 +8,91 @@ from scaffold.template import TemplateBuilder
 
 class IAMTemplate(TemplateBuilder):
 
-    BUILD_PARM_NAMES = []
+    BUILD_PARM_NAMES = ['s3_bucket_name', 's3_path_prefix', 'logging_enabled']
+
+    OUTPUT_NAME_BUCKET = 'CloudTrailBucket'
+    OUTPUT_NAME_TRAIL = 'Trail'
 
     def __init__(self, name,
+                 s3_bucket_name,
+                 s3_path_prefix='',
                  description='[REPLACE ME]',
-                 base_dir=None):
-        super(IAMTemplate, self).__init__(name, description)
-        if base_dir is None:
-            base_dir = self._discover_basedir()
-        self._base_dir = base_dir
-        self._discover_policy_files()
-        self._policies = {}
+                 logging_enabled=False):
+        super(IAMTemplate, self).__init__(name, description, IAMTemplate.BUILD_PARM_NAMES)
+        self.s3_bucket_name = s3_bucket_name
+        self.s3_path_prefix = s3_path_prefix
+        self.logging_enabled = logging_enabled
 
-    def _discover_policy_files(self):
-        self._policy_files = self._discover_files_under('policies')
-
-    def _discover_basedir(self):
-        return os.path.dirname(inspect.getfile(IAMTemplate))
-
-    def _discover_files_under(self, dirname):
-        files = []
-        for (dirpath, dirnames, filenames) in os.walk(os.path.join(self._base_dir, dirname)):
-            files.extend(os.path.join(dirpath, f) for f in filenames if f.endswith('.json'))
-        return files
-
-    def _base_name(self, path):
-        return os.path.basename(path).rsplit('.', 1)[0]
+    def internal_add_mappings(self):
+        pass
 
     def internal_build_template(self):
-        self.create_policies()
+        self._create_cloudtrail_bucket()
+        self._create_cloudtrail()
 
-    def create_policies(self):
-        for policy_file in self._policy_files:
-            with open(policy_file, 'r') as f:
-                document = json.load(f)
-            policy_name = self._base_name(policy_file)
-            resource_name = '{}Policy'.format(policy_name)
-            policy = iam.ManagedPolicy(resource_name,
-                                       PolicyDocument=document)
-            self._policies[policy_name] = policy
-            self.add_resource(policy)
-            self.add_output(tp.Output(resource_name, Value=tp.Ref(policy)))
+    def _create_cloudtrail_bucket(self):
+        lc = s3.LifecycleConfiguration(Rules=[s3.LifecycleRule(ExpirationInDays=30,
+                                                               Prefix=self.s3_path_prefix,
+                                                               Status='Enabled')
+                                              ])
+        bucket = s3.Bucket(self.OUTPUT_NAME_BUCKET,
+                           BucketName=self.s3_bucket_name,
+                           LifecycleConfiguration=lc,
+                           # DeletionPolicy='Retain',
+                           Tags=self.default_tags)
 
-    def get_policy(self, policy_name):
-        return self._policies[policy_name]
+        policy = s3.BucketPolicy(self.OUTPUT_NAME_BUCKET + 'Policy',
+                                 Bucket=tp.Ref(bucket),
+                                 PolicyDocument=self._create_bucket_policy(),
+                                 DependsOn=bucket.title)
 
-    def _arn_or_ref(self, element, referents):
-        if element.startswith('arn:'):
-            return element
-        return tp.Ref(referents[element])
+        self.add_resources(bucket, policy)
+        self.add_output(tp.Output(self.OUTPUT_NAME_BUCKET, Value=tp.Ref(bucket)))
+        self.bucket = bucket
+        self.bucket_policy = policy
 
+    def _create_cloudtrail(self):
+        trail = ct.Trail(self.OUTPUT_NAME_TRAIL,
+                         S3BucketName=self.s3_bucket_name,
+                         S3KeyPrefix=self.s3_path_prefix,
+                         IsLogging=self.logging_enabled,
+                         Tags=self.default_tags,
+                         DependsOn=self.bucket_policy.title)
+        self.add_resource(trail)
+        self.add_output(tp.Output(self.OUTPUT_NAME_TRAIL, Value=tp.Ref(trail)))
+        self.trail = trail
+
+    def _create_bucket_policy(self):
+        return {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Sid": "AWSCloudTrailAclCheck20150319",
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "cloudtrail.amazonaws.com"
+                    },
+                    "Action": "s3:GetBucketAcl",
+                    "Resource": "arn:aws:s3:::{}".format(self.s3_bucket_name)
+                },
+                {
+                    "Sid": "AWSCloudTrailWrite20150319",
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "cloudtrail.amazonaws.com"
+                    },
+                    "Action": "s3:PutObject",
+                    "Resource": "arn:aws:s3:::{}/*".format(self.s3_bucket_name),
+                    "Condition": {
+                        "StringEquals": {
+                            "s3:x-amz-acl": "bucket-owner-full-control"
+                        }
+                    }
+                }
+            ]
+        }
 
 if __name__ == '__main__':
-    template = IAMTemplate('testing')
+    template = IAMTemplate('testing', 'test-bucket')
     template.build_template()
     print template.to_json()

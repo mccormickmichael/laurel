@@ -22,5 +22,6 @@ class IAMBuilder(StackBuilder):
         return IAMTemplate(
             self.stack_name,
             description=build_parameters.description if self.args.desc is None else self.args.desc,
-            base_dir=self.args.base_dir
+            s3_bucket_name=build_parameters.bucket_name if self.args.bucket is None else self.args.bucket,
+            logging_enabled=build_parameters.logging_enabled if self.args.enable is None else self.args.enable,
         )
