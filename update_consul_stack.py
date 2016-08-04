@@ -1,13 +1,11 @@
 #!/usr/bin/python
 
 import argparse
-from datetime import datetime
-import inspect
-import os
 
 import boto3
 
 import arguments
+import logconfig
 from scaffold.consul.consul_builder import ConsulBuilder
 
 
@@ -40,8 +38,10 @@ def get_args():
     return ap.parse_args()
 
 if __name__ == '__main__':
+    logconfig.config()
     args = get_args()
     results = update_stack(args)
+    # TODO: move these to logging messages
     if results.dry_run:
         print results.template
     else:

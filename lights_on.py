@@ -4,6 +4,7 @@ import argparse
 
 import boto3
 
+import logconfig
 from scaffold import stack
 
 
@@ -55,7 +56,9 @@ def get_args():
 
 
 if __name__ == '__main__':
+    logconfig.config()
     args = get_args()
     results = lights_on(args)
+    # TODO: move these to logging messages
     for asg_name, values in results.iteritems():
         print 'ASG {} scaled to min: {}, max: {}'.format(asg_name, values['min'], values['max'])

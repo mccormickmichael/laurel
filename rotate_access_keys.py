@@ -5,6 +5,7 @@ import os.path
 import boto3
 
 import arguments
+import logconfig
 
 
 def rotate_keys(args):
@@ -81,6 +82,7 @@ def get_args():
 
 
 if __name__ == '__main__':
+    logconfig.config()
     args = get_args()
     new_key = rotate_keys(args)
     if new_key is not None:

@@ -5,6 +5,7 @@ import argparse
 import boto3
 
 import arguments
+import logconfig
 from scaffold.services.services_builder import ServicesBuilder
 
 
@@ -37,8 +38,10 @@ def get_args():
 
 
 if __name__ == "__main__":
+    logconfig.config()
     args = get_args()
     results = update_stack(args)
+    # TODO: move these to logging messages
     if results.dry_run:
         print results.template
     else:

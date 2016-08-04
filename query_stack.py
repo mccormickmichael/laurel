@@ -7,6 +7,7 @@ import argparse
 
 import boto3
 
+import logconfig
 from scaffold import stack
 
 
@@ -31,8 +32,10 @@ def get_args():
     return ap.parse_args()
 
 if __name__ == '__main__':
+    logconfig.config()
     args = get_args()
     build_parms, stack_parms = query_stack(args.stack_name, args.profile)
+    # TODO: move these to logging messages
     print('Build Parameters:')
     if len(build_parms) == 0:
         print('  (none)')

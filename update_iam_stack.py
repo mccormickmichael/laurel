@@ -44,6 +44,7 @@ if __name__ == "__main__":
     logconfig.config()
     args = get_args()
     results = update_stack(args)
+    # TODO: move these to logging messages
     if results.dry_run:
         print results.template
     else:

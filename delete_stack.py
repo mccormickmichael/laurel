@@ -5,6 +5,7 @@ import argparse
 
 import boto3
 
+import logconfig
 from arguments import generate_help, add_security_control_group
 from scaffold.stack.operation import StackDeleter
 
@@ -34,6 +35,8 @@ def get_args():
 
 
 if __name__ == '__main__':
+    logconfig.config()
     args = get_args()
     results = delete_stack(args)
+    # TODO: move these to logging messages
     print results
