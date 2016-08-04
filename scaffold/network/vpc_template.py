@@ -134,7 +134,7 @@ class VpcTemplate(TemplateBuilder):
         self.add_resource(tp.ec2.SubnetNetworkAclAssociation('{}{}NaclAssoc'.format(subnet.name, prefix),
                                                              SubnetId=tp.Ref(subnet),
                                                              NetworkAclId=tp.Ref(nacl)))
-        self.add_output(tp.Output(subnet.name, Value=tp.Ref(subnet)))
+        self.output(subnet)
         return subnet
 
     def create_public_subnet(self, az, rt):

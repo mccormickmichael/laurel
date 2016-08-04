@@ -121,7 +121,7 @@ class ConsulTemplate(TemplateBuilder):
                                    SubnetId=subnet_id,
                                    Tags=self._rename('{} ENI-'+str(index)))
         self.add_resource(eni)
-        self.add_output(tp.Output(eni.name, Value=tp.Ref(eni)))
+        self.output(eni)
         return eni
 
     def create_server_sg(self):
@@ -154,7 +154,7 @@ class ConsulTemplate(TemplateBuilder):
                                      VPCZoneIdentifier=[subnet_id],
                                      Tags=asgtag(self._rename('{} Server-'+str(index))))
         self.add_resources(lc, group)
-        self.add_output(tp.Output(group.name, Value=tp.Ref(group)))
+        self.output(group)
         return group
 
     def _server_lc_name(self, index):
@@ -254,7 +254,7 @@ class ConsulTemplate(TemplateBuilder):
                                   Threshold='25',
                                   Unit='Percent')
         self.add_resources(lc, group, scale_out, scale_in, scale_out_alarm, scale_in_alarm)
-        self.add_output(tp.Output(group.name, Value=tp.Ref(group)))
+        self.output(group)
         return group
 
     def create_logstreams(self):

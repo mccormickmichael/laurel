@@ -47,7 +47,7 @@ class IAMTemplate(TemplateBuilder):
                                  DependsOn=bucket.title)
 
         self.add_resources(bucket, policy)
-        self.add_output(tp.Output(self.OUTPUT_NAME_BUCKET, Value=tp.Ref(bucket)))
+        self.output(bucket)
         self.bucket = bucket
         self.bucket_policy = policy
 
@@ -59,7 +59,7 @@ class IAMTemplate(TemplateBuilder):
                          Tags=self.default_tags,
                          DependsOn=self.bucket_policy.title)
         self.add_resource(trail)
-        self.add_output(tp.Output(self.OUTPUT_NAME_TRAIL, Value=tp.Ref(trail)))
+        self.output(trail)
         self.trail = trail
 
     def _create_bucket_policy(self):

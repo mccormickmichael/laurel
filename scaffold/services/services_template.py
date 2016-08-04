@@ -112,7 +112,7 @@ class ServicesTemplate(TemplateBuilder):
                                      Tags=asgtag(self._rename('{} NAT')))
 
         self.add_resources(group, lc)
-        self.add_output(tp.Output('NATASG', Value=tp.Ref(group)))
+        self.output(group)
         return group
 
     def create_nat_iam_profile(self):
@@ -178,7 +178,7 @@ class ServicesTemplate(TemplateBuilder):
                                      VPCZoneIdentifier=self.public_subnet_ids,
                                      Tags=asgtag(self._rename('{} Bastion')))
         self.add_resources(group, lc)
-        self.add_output(tp.Output('BastionASG', Value=tp.Ref(group)))
+        self.output(group)
         return group
 
     def _create_bastion_userdata(self):

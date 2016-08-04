@@ -79,6 +79,11 @@ class TemplateBuilder(object):
     def add_resources(self, *resources):
         self.add_resource(list(resources))
 
+    def output(self, *outputs):
+        '''Add an AWS object reference as an output. This is the most common use case.'''
+        for o in outputs:
+            self.template.add_output(tp.Output(o.title, Value=tp.Ref(o)))
+
     def add_output(self, outputs):
         self.template.add_output(outputs)
 
