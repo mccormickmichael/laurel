@@ -82,10 +82,13 @@ class TemplateBuilder(object):
     def output(self, *outputs):
         '''Add an AWS object reference as an output. This is the most common use case.'''
         for o in outputs:
-            self.template.add_output(tp.Output(o.title, Value=tp.Ref(o)))
+            self.output_ref(o.title, o)
 
-    def add_output(self, outputs):
-        self.template.add_output(outputs)
+    def output_ref(self, name, o):
+        self.output_named(name, tp.Ref(o))
+
+    def output_named(self, name, value):
+        self.template.add_output(tp.Output(name, Value=value))
 
     def restore_build_parms(self, parms):
         for attr, value in parms.iteritems():

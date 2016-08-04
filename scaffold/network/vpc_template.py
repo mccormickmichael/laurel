@@ -79,8 +79,8 @@ class VpcTemplate(TemplateBuilder):
                                                       InternetGatewayId=tp.Ref(self.igw),
                                                       VpcId=tp.Ref(self.vpc))
         self.add_resources(self.vpc, self.igw, self.igw_attach)
-        self.add_output(tp.Output('VpcId', Value=tp.Ref(self.vpc)))
-        self.add_output(tp.Output('VpcCidr', Value=self.vpc_cidr))
+        self.output_ref('VpcId', self.vpc)
+        self.output_named('VpcCidr', self.vpc_cidr)
 
     def create_public_routes(self):
         self.public_route_table = tp.ec2.RouteTable('{}PublicRT'.format(self.name),
@@ -152,7 +152,7 @@ class VpcTemplate(TemplateBuilder):
                                                      VpcId=tp.Ref(self.vpc),
                                                      Tags=self._rename('{} Private'))
         self.add_resource(self.private_route_table)
-        self.add_output(tp.Output('PrivateRT', Value=tp.Ref(self.private_route_table)))
+        self.output_ref('PrivateRT', self.private_route_table)
 
     def create_private_nacl(self):
         self.priv_nacl = tp.ec2.NetworkAcl('{}PrivateNacl'.format(self.name),

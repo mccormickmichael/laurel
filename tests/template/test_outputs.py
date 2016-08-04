@@ -44,3 +44,16 @@ class TestOutputs(unittest.TestCase):
         self.assertEqual(2, len(t.outputs))
         self.assertIsNotNone(t.outputs.get('TestGroupOne'))
         self.assertIsNotNone(t.outputs.get('TestGroupTwo'))
+
+    def test_named_output(self):
+        thing = iam.Group('TestGroup')
+        self.tb.output_named('argle', tp.Ref(thing))
+
+        self.assertIsNotNone(self.tb.template.outputs.get('argle'))
+
+    def test_output_reference(self):
+        thing = iam.Group('TestGroup')
+        self.tb.output_ref('argle', thing)
+        o = self.tb.template.outputs['argle']
+
+        self.assertIsInstance(o.Value, tp.Ref)

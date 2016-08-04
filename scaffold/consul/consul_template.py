@@ -176,7 +176,7 @@ class ConsulTemplate(TemplateBuilder):
                                            VpcId=self.vpc_id,
                                            Tags=self.default_tags)
         self.add_resource(self.consul_sg)
-        self.add_output(tp.Output('ConsulAgentSG', Value=tp.Ref(self.consul_sg)))
+        self.output_ref('ConsulAgentSG', self.consul_sg)
 
     def create_ui_sg(self):
         ingress_rules = [
