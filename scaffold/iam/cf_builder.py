@@ -10,10 +10,10 @@ class IAMBuilder(StackBuilder):
         self.args = args
 
     def get_s3_bucket(self):
-        return self.args.s3_bucket
+        return self.args.deploy_s3_bucket
 
     def create_s3_key_prefix(self):
-        return '{}/iam-{}'.format(self.args.s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
+        return '{}/iam-{}'.format(self.args.deploy_s3_key_prefix, datetime.utcnow().strftime('%Y%m%d-%H%M%S'))
 
     def get_build_parameter_names(self):
         return list(IAMTemplate.BUILD_PARM_NAMES)

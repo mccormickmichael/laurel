@@ -1,10 +1,10 @@
 default_profile = 'default'
 default_region_name = 'us-west-2'
-default_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
-default_s3_key_prefix = 'scaffold'
+default_deploy_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
+default_deploy_s3_key_prefix = 'scaffold'
 
-s3_bucket_help = 'Name of the S3 bucket to which stack template files are uploaded.'
-s3_key_prefix_help = 'Prefix to use when uploading stack template files to the bucket.'
+deploy_s3_bucket_help = 'Name of the S3 bucket to which stack template files are uploaded.'
+deploy_s3_key_prefix_help = 'Prefix to use when uploading stack template files to the bucket.'
 
 profile_help = 'AWS Credential and Config profile to use.'
 region_help = 'Region to connect to. Required if profile is specified.'
@@ -12,14 +12,14 @@ dry_run_help = 'Report on what would have happened. Take no mutable action.'
 
 
 def add_deployment_group(argparser,
-                         default_bucket=default_s3_bucket,
-                         default_key_prefix=default_s3_key_prefix,
+                         default_deploy_bucket=default_deploy_s3_bucket,
+                         default_deploy_key_prefix=default_deploy_s3_key_prefix,
                          use_defaults=True):
     group = argparser.add_argument_group('Deployment')
-    group.add_argument('--s3-bucket', default=default_s3_bucket if use_defaults else None,
-                       help=generate_help(s3_bucket_help, default_s3_bucket, use_defaults))
-    group.add_argument('--s3-key-prefix', default=default_s3_key_prefix if use_defaults else None,
-                       help=generate_help(s3_key_prefix_help, default_s3_key_prefix, use_defaults))
+    group.add_argument('--deploy-s3-bucket', default=default_deploy_s3_bucket if use_defaults else None,
+                       help=generate_help(deploy_s3_bucket_help, default_deploy_s3_bucket, use_defaults))
+    group.add_argument('--deploy-s3-key-prefix', default=default_deploy_s3_key_prefix if use_defaults else None,
+                       help=generate_help(deploy_s3_key_prefix_help, default_deploy_s3_key_prefix, use_defaults))
     return group
 
 
