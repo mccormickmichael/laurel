@@ -42,7 +42,6 @@ class StackOperation(object):
             StackName=self._stack_name,
             TemplateURL=self._template_url,
             Parameters=parameters.to_stack_parms(),
-            Capabilities=['CAPABILITY_IAM'],
             TimeoutInMinutes=10,
             OnFailure='ROLLBACK')
         # TODO: Add notificationArn and Stack Tags
@@ -57,8 +56,7 @@ class StackOperation(object):
         parameters = Parameters(boto3_stack=stack)
         parameters.update(updated_stack_params)
         stack.update(TemplateURL=self._template_url,
-                     Parameters=parameters.to_stack_parms(),
-                     Capabilities=['CAPABILITY_IAM'])
+                     Parameters=parameters.to_stack_parms())
         # TODO: Add notificationArn and Stack Tags
 
         _monitor_stack(stack, ['UPDATE_IN_PROGRESS', 'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS',
