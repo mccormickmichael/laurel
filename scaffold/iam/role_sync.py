@@ -3,7 +3,7 @@ import logging
 
 from . import load_policy_map, create_user_arns, create_role_arns, matches_aws_policy_doc
 
-logger = logging.getLogger('iam.RoleSync')
+logger = logging.getLogger('laurel.iam.RoleSync')
 
 
 class RoleSync(object):

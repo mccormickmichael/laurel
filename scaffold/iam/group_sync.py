@@ -1,9 +1,8 @@
 import logging
 
-from scaffold.stack.elements import Outputs
 from . import load_policy_map
 
-logger = logging.getLogger('iam.GroupSync')
+logger = logging.getLogger('laurel.iam.GroupSync')
 
 
 class GroupSync(object):

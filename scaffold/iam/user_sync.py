@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger('iam.UserSync')
+logger = logging.getLogger('laurel.iam.UserSync')
 
 
 class UserSync(object):

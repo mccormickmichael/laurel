@@ -4,12 +4,12 @@
 
 
 import argparse
-import logging
 import os.path
 
 import boto3
 import yaml
 
+import logconfig
 import arguments
 from scaffold.iam.group_sync import GroupSync
 from scaffold.iam.user_sync import UserSync
@@ -66,6 +66,7 @@ def update_policies(args, session):
     synchronizer.sync(policypath(args.basedir), args.dry_run)
     # TODO: results? Provide list of policies impacted?
 
+
 def parse_args():
     ap = argparse.ArgumentParser(description='Update IAM elements: users, groups, roles, policies',
                                  add_help=False)
@@ -98,10 +99,7 @@ def validate_args(args):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(relativeCreated)6d:%(levelname)5s:%(name)s:%(message)s')
-    for name in ['boto3', 'botocore']:
-        logging.getLogger(name).setLevel(logging.WARN)  # MEH.
+    logconfig.config()
     args = parse_args()
     validate_args(args)
     session = get_session(args)

@@ -3,7 +3,7 @@ import os.path
 
 from . import matches_aws_policy_doc
 
-logger = logging.getLogger('iam.PolicySync')
+logger = logging.getLogger('laurel.iam.PolicySync')
 
 
 class PolicySync(object):

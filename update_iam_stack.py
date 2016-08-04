@@ -5,6 +5,7 @@ import argparse
 import boto3
 
 import arguments
+import logconfig
 from scaffold.iam.cf_builder import IAMBuilder
 
 
@@ -40,6 +41,7 @@ def get_args():
 
 
 if __name__ == "__main__":
+    logconfig.config()
     args = get_args()
     results = update_stack(args)
     if results.dry_run:
