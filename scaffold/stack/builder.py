@@ -49,12 +49,15 @@ class StackBuilder(object):
         stack_parms = self.get_stack_parameters()
         results.stack_parameters = stack_parms
 
+        capabilities = self.get_capabilities()
+
         if dry_run:
             return results
 
         operator = StackOperation(self.session,
                                   self.stack_name,
                                   template_json,
+                                  capabilities,
                                   self.get_s3_bucket(),
                                   s3_key_prefix)
         if self.is_update():
@@ -106,3 +109,10 @@ class StackBuilder(object):
 
     def get_stack_parameters(self):
         return {}
+
+    def get_capabilities(self):
+        # Note: We could discover required capabilities automatically by querying the template for
+        #       types that require capability acknowledgement. However, since Amazon requires explicit
+        #       acknowledgement, we should require explicit acknowledgement as well. Therefore, subclasses
+        #       should provide the appropriate capability if necessary.
+        return []

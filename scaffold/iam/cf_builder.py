@@ -18,6 +18,10 @@ class IAMBuilder(StackBuilder):
     def get_build_parameter_names(self):
         return list(IAMTemplate.BUILD_PARM_NAMES)
 
+    def get_capabilities(self):
+        # The iam stack contains named IAM resources (obviously). Explicitly acknowledge it here.
+        return ['CAPABILITY_NAMED_IAM']
+
     def create_template(self, dependencies, build_parameters):
         return IAMTemplate(
             self.stack_name,

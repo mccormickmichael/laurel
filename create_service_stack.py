@@ -10,7 +10,7 @@ from scaffold.services.services_builder import ServicesBuilder
 
 
 def create_stack(args):
-    session = boto3.session.Session(profile_name=args.profile)
+    session = boto3.session.Session(profile_name=args.profile, region_name=args.region)
     builder = ServicesBuilder(args, session, False)
     return builder.build(args.dry_run)
 

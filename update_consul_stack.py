@@ -10,7 +10,7 @@ from scaffold.consul.consul_builder import ConsulBuilder
 
 
 def update_stack(args):
-    session = boto3.session.Session(profile_name=args.profile)
+    session = boto3.session.Session(profile_name=args.profile, region_name=args.region)
     builder = ConsulBuilder(args, session, True)
     return builder.build(args.dry_run)
 
@@ -21,6 +21,8 @@ def get_args():
     req = ap.add_argument_group('Required')
     req.add_argument('stack_name',
                      help='Name of the Consul stack to create')
+    req.add_argument('network_stack_name',
+                     help='Name of the Network stack')
 
     st = ap.add_argument_group('Stack definitions')
     st.add_argument('--desc',

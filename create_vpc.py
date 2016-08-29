@@ -10,7 +10,7 @@ from scaffold.network.vpc_builder import VpcBuilder
 
 
 def create_stack(args):
-    session = boto3.session.Session(profile_name=args.profile)
+    session = boto3.session.Session(profile_name=args.profile, region_name=args.region)
     builder = VpcBuilder(args, session, False)
     return builder.build(args.dry_run)
 

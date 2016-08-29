@@ -29,6 +29,10 @@ class ServicesBuilder(StackBuilder):
 
         return dependencies
 
+    def get_capabilities(self):
+        # The service stack contains inline policy resources. Explicitly acknowledge it here.
+        return ['CAPABILITY_IAM']
+
     def create_template(self, dependencies, build_parameters):
         return ServicesTemplate(
             self.stack_name,

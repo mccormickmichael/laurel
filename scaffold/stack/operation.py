@@ -26,9 +26,10 @@ def _to_s3_url(bucket, key):
 
 
 class StackOperation(object):
-    def __init__(self, boto3_session, stack_name, template_body, bucket_name, key_prefix):
+    def __init__(self, boto3_session, stack_name, template_body, capabilities, bucket_name, key_prefix):
         self._stack_name = stack_name
         self._session = boto3_session
+        self._capabilities = capabilities
         self._bucket_name = bucket_name
         self._key_prefix = key_prefix
         self._template_url = self._upload_template(template_body)
@@ -42,6 +43,7 @@ class StackOperation(object):
             StackName=self._stack_name,
             TemplateURL=self._template_url,
             Parameters=parameters.to_stack_parms(),
+            Capabilities=self._capabilities,
             TimeoutInMinutes=10,
             OnFailure='ROLLBACK')
         # TODO: Add notificationArn and Stack Tags
