@@ -31,6 +31,12 @@ class ConsulBuilder(StackBuilder):
         return ['CAPABILITY_IAM']
 
     def create_template(self, dependencies, build_parameters):
+        args_dict = vars(self.args)  # convert to dict to handle missing arguments (e.g. from update jobs). Kind of icky.
+        cluster_size = args_dict.get('cluster_size', build_parameters.cluster_size)
+        instance_type = args_dict.get('instance_type', build_parameters.instance_type)
+        ui_instance_type = args_dict.get('ui_instance_type', build_parameters.ui_instance_type)
+        description = args_dict.get('desc', build_parameters.description)
+
         return ConsulTemplate(
             self.stack_name,
             region=self.get_region(),
@@ -39,12 +45,11 @@ class ConsulBuilder(StackBuilder):
             vpc_id=dependencies.vpc_id,
             vpc_cidr=dependencies.vpc_cidr,
             server_subnet_ids=dependencies.private_subnet_ids,
-            ui_subnet_ids=dependencies.public_subnet_ids, # TODO: user parameter to suppress UI instance.
-            description=build_parameters.description if self.args.desc is None else self.args.desc,
-            # BUG: update template scripts do not have cluster_size or instance_type arguments.
-            server_cluster_size=build_parameters.cluster_size if self.args.cluster_size is None else self.args.cluster_size,
-            server_instance_type=build_parameters.instance_type if self.args.instance_type is None else self.args.instance_type,
-            ui_instance_type=build_parameters.ui_instance_type if self.args.ui_instance_type is None else self.args.ui_instance_type
+            ui_subnet_ids=dependencies.public_subnet_ids,  # TODO: user parameter to suppress UI instance.
+            description=description,
+            server_cluster_size=cluster_size,
+            server_instance_type=instance_type,
+            ui_instance_type=ui_instance_type
         )
 
     def do_before_create(self, dependencies, dry_run):
