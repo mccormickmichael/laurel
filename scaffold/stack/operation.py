@@ -58,7 +58,8 @@ class StackOperation(object):
         parameters = Parameters(boto3_stack=stack)
         parameters.update(updated_stack_params)
         stack.update(TemplateURL=self._template_url,
-                     Parameters=parameters.to_stack_parms())
+                     Parameters=parameters.to_stack_parms(),
+                     Capabilities=self._capabilities)
         # TODO: Add notificationArn and Stack Tags
 
         _monitor_stack(stack, ['UPDATE_IN_PROGRESS', 'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS',

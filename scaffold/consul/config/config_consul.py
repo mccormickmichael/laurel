@@ -39,7 +39,10 @@ if 'server' in config:  # server mode
     config['server'] = True
 elif 'ui' in config:  # web UI mode
     config['ui'] = True
-    config['client_addr'] = my_private_ip
+    try:
+        config['client_addr'] = urllib2.urlopen('http://169.254.169.254/latest/meta-data/public-ipv4')
+    except urllib2.HTTPError:
+        config['client_addr'] = my_private_ip
 else:  # generic client agent mode
     pass
 
