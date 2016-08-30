@@ -518,11 +518,16 @@ class ConsulTemplate(TemplateBuilder):
                 # See https://www.consul.io/docs/agent/options.html#configuration_files
                 consul_config_file: {
                     'content': {
-                        'client_addr': 'REPLACE AT RUNTIME',
+                        'addresses': {
+                            'http': '0.0.0.0'
+                        },
                         'datacenter': self.region,
                         'data_dir': consul_data_dir,
                         'log_level': 'INFO',
                         'retry_join': 'REPLACE AT RUNTIME',
+                        'ports': {
+                            'http': 80
+                        },
                         'ui': True,
                         'ui_dir': ui_dir,
                         '_eni_ids': [tp.Ref(e) for e in self.server_enis]  # used for runtime resolution
