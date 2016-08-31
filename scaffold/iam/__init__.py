@@ -1,9 +1,29 @@
 import ast
 import collections
 import json
+import os
 import types
 
 from scaffold.stack.elements import Outputs
+
+
+def discover_policy_files(policy_dir):
+    '''Return a {policy_name : file_path} mapping of all json files under policy_dir'''
+    mapping = {}
+    for (dirpath, dirnames, filenames) in os.walk(policy_dir):
+        mapping.update(
+            {
+                os.path.splitext(f)[0]:
+                os.path.join(dirpath, f) for f in filenames if f.endswith('.json')
+            }
+        )
+    return mapping
+
+
+def load_policy_file(policy_file_name):
+    with open(policy_file_name, 'r') as f:
+        policy = json.load(f)
+    return policy
 
 
 def load_policy_map(boto3_session, iam_stack_name=None):

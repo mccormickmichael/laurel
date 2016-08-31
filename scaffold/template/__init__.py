@@ -85,6 +85,7 @@ class TemplateBuilder(object):
             self.output_ref(o.title, o)
 
     def output_ref(self, name, o):
+        '''Add a reference to an AWS object with a specific name.'''
         self.output_named(name, tp.Ref(o))
 
     def output_named(self, name, value):

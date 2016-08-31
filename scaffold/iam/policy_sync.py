@@ -1,7 +1,7 @@
 import logging
 import os.path
 
-from . import matches_aws_policy_doc
+from . import matches_aws_policy_doc, discover_policy_files
 
 logger = logging.getLogger('laurel.iam.PolicySync')
 
@@ -12,7 +12,7 @@ class PolicySync(object):
         self._iam = self._session.resource('iam')
 
     def sync(self, policy_dir, dry_run):
-        policy_file_dict = self._discover_policy_files(policy_dir)
+        policy_file_dict = discover_policy_files(policy_dir)
         policy_text_dict = self._read_policy_files(policy_file_dict)
         defined_policy_names = policy_file_dict.keys()
 
@@ -29,7 +29,7 @@ class PolicySync(object):
         self._delete_policies(policies_to_delete, dry_run)
         self._create_policies(policies_to_create, policy_text_dict, dry_run)
         self._update_policies(policies_to_update, policy_text_dict, dry_run)
-        
+
         # policies_to_update
         #  - delete last version if version count > 4
         #  - create new version
@@ -89,18 +89,6 @@ class PolicySync(object):
         if not dry_run:
             policy.create_version(PolicyDocument=document,
                                   SetAsDefault=set_as_default)
-
-    def _discover_policy_files(self, policy_dir):
-        '''Return a {policy_name : file_path} mapping of all json files under policy_dir'''
-        mapping = {}
-        for (dirpath, dirnames, filenames) in os.walk(policy_dir):
-            mapping.update(
-                {
-                    os.path.splitext(f)[0]:
-                    os.path.join(dirpath, f) for f in filenames if f.endswith('.json')
-                }
-            )
-        return mapping
 
     def _read_policy_files(self, policy_file_map):
         '''Return a dict of {policy_name: file_contents} given a mapping of {policy_name: file_path}'''
