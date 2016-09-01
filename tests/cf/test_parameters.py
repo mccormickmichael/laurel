@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
 import unittest
-from ..elements import Parameters
+
+from scaffold.cf.stack.elements import Parameters
 
 
 class TestParameters(unittest.TestCase):

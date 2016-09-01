@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
 import unittest
-from ..elements import Outputs
+
+from scaffold.cf.stack.elements import Outputs
 
 
 class TestOutputs(unittest.TestCase):
