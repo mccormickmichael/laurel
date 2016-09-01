@@ -6,6 +6,7 @@ default_deploy_s3_key_prefix = 'scaffold'
 deploy_s3_bucket_help = 'Name of the S3 bucket to which stack template files are uploaded.'
 deploy_s3_key_prefix_help = 'Prefix to use when uploading stack template files to the bucket.'
 
+role_help = 'Role, if any, to assume when performing actions'
 profile_help = 'AWS Credential and Config profile to use.'
 region_help = 'Region to connect to. Required if profile is specified.'
 dry_run_help = 'Report on what would have happened. Take no mutable action.'
@@ -27,6 +28,8 @@ def add_security_control_group(argparser,
                                default_profile_name='default',
                                add_help=True):
     group = argparser.add_argument_group('Security and control')
+    group.add_argument('--role',
+                       help=role_help)
     group.add_argument('--profile', default=default_profile_name,
                        help=generate_help(profile_help, default_profile_name))
     group.add_argument('--region', default=default_region_name,

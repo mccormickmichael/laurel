@@ -6,11 +6,11 @@
 import argparse
 import os.path
 
-import boto3
 import yaml
 
 import logconfig
 import arguments
+import session
 from scaffold.iam.group_sync import GroupSync
 from scaffold.iam.user_sync import UserSync
 from scaffold.iam.role_sync import RoleSync
@@ -18,7 +18,7 @@ from scaffold.iam.policy_sync import PolicySync
 
 
 def get_session(args):
-    return boto3.session.Session(profile_name=args.profile, region_name=args.region)
+    return session.new(args.profile, args.region, args.role)
 
 
 def userspath(basedir):

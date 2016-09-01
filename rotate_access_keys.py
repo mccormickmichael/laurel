@@ -2,15 +2,14 @@ import argparse
 import ConfigParser
 import os.path
 
-import boto3
-
 import arguments
 import logconfig
+import session
 
 
 def rotate_keys(args):
-    session = boto3.session.Session(profile_name=args.profile)
-    iam = session.resource('iam')
+    boto3_session = session.new(args.profile, args.region, args.role)
+    iam = boto3_session.resource('iam')
     if args.user is not None:
         user = iam.User(args.user)
     else:

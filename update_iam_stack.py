@@ -2,16 +2,15 @@
 
 import argparse
 
-import boto3
-
 import arguments
 import logconfig
+import session
 from scaffold.iam.cf_builder import IAMBuilder
 
 
 def update_stack(args):
-    session = boto3.session.Session(profile_name=args.profile, region_name=args.region)
-    builder = IAMBuilder(args, session, True)
+    boto3_session = session.new(args.profile, args.region, args.role)
+    builder = IAMBuilder(args, boto3_session, True)
     return builder.build(args.dry_run)
 
 

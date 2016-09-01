@@ -5,18 +5,18 @@
 
 import argparse
 
-import boto3
-
+import arguments
 import logconfig
+import session
 from scaffold.cf import stack
 
 
 def query_stack(stack_name, profile):
-    session = boto3.session.Session(profile_name=profile)
+    boto3_session = session.new(args.profile, args.region, args.role)
 
     return [
-        stack.summary(session, stack_name).build_parameters(),
-        stack.parameters(session, stack_name)
+        stack.summary(boto3_session, stack_name).build_parameters(),
+        stack.parameters(boto3_session, stack_name)
     ]
 
 
@@ -24,11 +24,11 @@ default_profile = 'default'
 
 
 def get_args():
-    ap = argparse.ArgumentParser(description='Query a CloudFormation stack for build and template parameters')
+    ap = argparse.ArgumentParser(description='Query a CloudFormation stack for build and template parameters',
+                                 add_help=False)
     ap.add_argument('stack_name',
                     help='Name of the stack to query')
-    ap.add_argument('--profile', default=default_profile,
-                    help='AWS Credential and Config profile to use. Default: {}'.format(default_profile))
+    arguments.add_security_control_group(ap)
     return ap.parse_args()
 
 if __name__ == '__main__':

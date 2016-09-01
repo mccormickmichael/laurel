@@ -3,17 +3,16 @@
 
 import argparse
 
-import boto3
-
+import arguments
 import logconfig
-from arguments import add_security_control_group
+import session
 from scaffold.cf.stack.operation import StackDeleter
 
 
 def delete_stack(args):
-    session = boto3.session.Session(profile_name=args.profile, region_name=args.region)
+    boto3_session = session.new(args.profile, args.region, args.role)
 
-    deleter = StackDeleter(session, args.stack_name)
+    deleter = StackDeleter(boto3_session, args.stack_name)
     if args.dry_run:
         deleter.validate_stack_exists()
         return 'Stack {} exists'.format(args.stack_name)
@@ -30,7 +29,7 @@ def get_args():
     ap = argparse.ArgumentParser(description='Delete a CloudFormation stack', add_help=False)
     ap.add_argument('stack_name',
                     help='Name of the stack to delete')
-    add_security_control_group(ap)
+    arguments.add_security_control_group(ap)
     return ap.parse_args()
 
 
