@@ -38,6 +38,12 @@ if 'server' in config:  # server mode
     config['server'] = True
 elif 'ui' in config:  # web UI mode
     config['ui'] = True
+    # Consul expects port #s to be ints, but cfn-init munges them to strings.
+    if config.get('ports'):
+        ports = config['ports']
+        for k, v in ports.items():
+            ports[k] = int(v)
+
 else:  # generic client agent mode
     pass
 

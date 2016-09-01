@@ -6,7 +6,7 @@ import boto3
 
 import arguments
 import logconfig
-from scaffold.network.vpc_builder import VpcBuilder
+from scaffold.vpc.vpc_builder import VpcBuilder
 
 
 def create_stack(args):
