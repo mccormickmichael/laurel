@@ -38,8 +38,8 @@ import troposphere.iam as iam
 import troposphere.autoscaling as asg
 import troposphere as tp
 
-from ..template import asgtag, TemplateBuilder, AMI_REGION_MAP_NAME, REF_REGION
-from ..network import net
+from scaffold.cf.template import asgtag, TemplateBuilder, AMI_REGION_MAP_NAME, REF_REGION
+from ..network import net  # TODO: move net out of network to CF-generic location?
 
 
 class ServicesTemplate(TemplateBuilder):

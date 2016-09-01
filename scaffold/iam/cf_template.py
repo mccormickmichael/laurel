@@ -3,7 +3,7 @@ import troposphere.cloudtrail as ct
 import troposphere.s3 as s3
 import troposphere as tp
 
-from scaffold.template import TemplateBuilder
+from scaffold.cf.template import TemplateBuilder
 
 
 class IAMTemplate(TemplateBuilder):

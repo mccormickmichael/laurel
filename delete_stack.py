@@ -6,8 +6,8 @@ import argparse
 import boto3
 
 import logconfig
-from arguments import generate_help, add_security_control_group
-from scaffold.stack.operation import StackDeleter
+from arguments import add_security_control_group
+from scaffold.cf.stack.operation import StackDeleter
 
 
 def delete_stack(args):

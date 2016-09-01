@@ -46,8 +46,8 @@ import troposphere.cloudwatch as cw
 import troposphere.logs as logs
 import troposphere as tp
 
-from ..template import asgtag, TemplateBuilder, AMI_REGION_MAP_NAME, REF_STACK_NAME
-from ..network import net
+from scaffold.cf.template import asgtag, TemplateBuilder, AMI_REGION_MAP_NAME, REF_STACK_NAME
+from ..network import net  # TODO: move from network to generic CF location
 
 
 class ConsulTemplate(TemplateBuilder):

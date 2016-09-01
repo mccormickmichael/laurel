@@ -8,7 +8,7 @@ import argparse
 import boto3
 
 import logconfig
-from scaffold import stack
+from scaffold.cf import stack
 
 
 def query_stack(stack_name, profile):

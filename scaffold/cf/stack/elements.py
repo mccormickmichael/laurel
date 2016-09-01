@@ -3,7 +3,7 @@
 import collections
 import json
 
-from ..doby import Doby
+from scaffold.doby import Doby
 
 
 class Parameters(collections.MutableMapping):

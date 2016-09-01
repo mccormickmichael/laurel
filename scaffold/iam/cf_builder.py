@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from .cf_template import IAMTemplate
-from ..stack.builder import StackBuilder
+from scaffold.cf.stack.builder import StackBuilder
 
 
 class IAMBuilder(StackBuilder):

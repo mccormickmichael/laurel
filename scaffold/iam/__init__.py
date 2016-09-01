@@ -1,9 +1,7 @@
-import ast
-import collections
 import json
 import types
 
-from scaffold.stack.elements import Outputs
+from scaffold.cf.stack.elements import Outputs
 
 
 def load_policy_map(boto3_session, iam_stack_name=None):

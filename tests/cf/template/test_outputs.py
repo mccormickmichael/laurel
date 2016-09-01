@@ -3,7 +3,7 @@ import unittest
 import troposphere.iam as iam
 import troposphere as tp
 
-from scaffold.template import TemplateBuilder
+from scaffold.cf.template import TemplateBuilder
 
 
 class TestOutputs(unittest.TestCase):

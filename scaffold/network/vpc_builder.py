@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from .vpc_template import VpcTemplate
-from ..stack.builder import StackBuilder
+from scaffold.cf.stack.builder import StackBuilder
 
 
 class VpcBuilder(StackBuilder):

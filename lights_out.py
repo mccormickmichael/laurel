@@ -5,7 +5,7 @@ import argparse
 import boto3
 
 import logconfig
-from scaffold import stack
+from scaffold.cf import stack
 
 
 def matches_any(name, partial_names):

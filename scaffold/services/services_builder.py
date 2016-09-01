@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from ..stack.builder import StackBuilder
-from .. import stack
+from scaffold.cf.stack.builder import StackBuilder
+from scaffold.cf import stack
 from .services_template import ServicesTemplate
 
 

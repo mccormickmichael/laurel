@@ -2,8 +2,8 @@ from datetime import datetime
 import inspect
 import os
 
-from ..stack.builder import StackBuilder
-from .. import stack
+from scaffold.cf.stack.builder import StackBuilder
+from scaffold.cf import stack
 from .consul_template import ConsulTemplate
 
 
