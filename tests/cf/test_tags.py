@@ -4,7 +4,7 @@ import unittest
 
 from troposphere import Tags
 
-from .. import retag, asgtag, mergetag
+from scaffold.cf.template import retag, asgtag, mergetag
 
 
 class test_tags(unittest.TestCase):

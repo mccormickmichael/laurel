@@ -2,7 +2,7 @@
 import json
 import unittest
 
-from .. import TemplateBuilder
+from scaffold.cf.template import TemplateBuilder
 
 
 class DummyTemplate(TemplateBuilder):
