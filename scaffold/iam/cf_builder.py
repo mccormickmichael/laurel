@@ -19,8 +19,8 @@ class IAMBuilder(StackBuilder):
         return list(IAMTemplate.BUILD_PARM_NAMES)
 
     def get_capabilities(self):
-        # The iam stack contains named IAM resources (obviously). Explicitly acknowledge it here.
-        return ['CAPABILITY_NAMED_IAM']
+        # The iam stack contains inline policy resources. Explicitly acknowledge it here.
+        return ['CAPABILITY_IAM']
 
     def create_template(self, dependencies, build_parameters):
         return IAMTemplate(
