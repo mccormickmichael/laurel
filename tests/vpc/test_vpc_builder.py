@@ -1,6 +1,6 @@
 import unittest
 
-from scaffold.network.vpc_builder import VpcBuilder
+from scaffold.vpc.vpc_builder import VpcBuilder
 
 
 class TestVpcBuilder(unittest.TestCase):

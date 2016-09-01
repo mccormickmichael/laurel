@@ -1,6 +1,6 @@
 import unittest
 
-from scaffold.network.vpc_template import VpcTemplate
+from scaffold.vpc.vpc_template import VpcTemplate
 
 
 class TestVpcNxN(unittest.TestCase):

@@ -31,8 +31,9 @@ import sys
 
 import troposphere as tp
 
-from . import cidr, net
+from . import cidr
 from scaffold.cf.template import TemplateBuilder
+from scaffold.cf import net
 
 
 class VpcTemplate(TemplateBuilder):
