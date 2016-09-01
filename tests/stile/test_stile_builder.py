@@ -1,6 +1,6 @@
 import unittest
 
-from scaffold.services.services_builder import ServicesBuilder
+from scaffold.stile.stile_builder import StileBuilder
 
 
 class TestServicesBuilder(unittest.TestCase):

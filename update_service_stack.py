@@ -6,12 +6,12 @@ import boto3
 
 import arguments
 import logconfig
-from scaffold.services.services_builder import ServicesBuilder
+from scaffold.stile.stile_builder import StileBuilder
 
 
 def update_stack(args):
     session = boto3.session.Session(profile_name=args.profile, region_name=args.region)
-    builder = ServicesBuilder(args, session, True)
+    builder = StileBuilder(args, session, True)
     return builder.build(args.dry_run)
 
 
@@ -20,7 +20,7 @@ def get_args():
                                  add_help=False)
     req = ap.add_argument_group('Required')
     req.add_argument("stack_name",
-                     help='Name of the service stack to update')
+                     help='Name of the stack to update')
     req.add_argument('--bastion-key', required=True,
                      help='Name of the key pair to access the bastion server.')
 

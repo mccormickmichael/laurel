@@ -42,7 +42,7 @@ from scaffold.cf.template import asgtag, TemplateBuilder, AMI_REGION_MAP_NAME, R
 from ..network import net  # TODO: move net out of network to CF-generic location?
 
 
-class ServicesTemplate(TemplateBuilder):
+class StileTemplate(TemplateBuilder):
 
     BUILD_PARM_NAMES = ['vpc_id', 'vpc_cidr', 'private_route_table_id', 'public_subnet_ids',
                         'nat_instance_type', 'bastion_instance_type']
@@ -57,7 +57,7 @@ class ServicesTemplate(TemplateBuilder):
                  region='us-west-2',
                  nat_instance_type='t2.micro',
                  bastion_instance_type='t2.micro'):
-        super(ServicesTemplate, self).__init__(name, description, ServicesTemplate.BUILD_PARM_NAMES)
+        super(StileTemplate, self).__init__(name, description, StileTemplate.BUILD_PARM_NAMES)
 
         self.vpc_id = vpc_id
         self.vpc_cidr = vpc_cidr
@@ -195,6 +195,6 @@ if __name__ == '__main__':
     vpc_cidr = sys.argv[3] if len(sys.argv) > 3 else '10.0.0.0/8'
     route_table = sys.argv[4] if len(sys.argv) > 4 else 'rtb-deadbeef'
     subnets = sys.argv[5:] if len(sys.argv) > 5 else ['subnet-deadbeef', 'subnet-cab4abba']
-    template = ServicesTemplate(name, vpc_id, vpc_cidr, route_table, subnets)
+    template = StileTemplate(name, vpc_id, vpc_cidr, route_table, subnets)
     template.build_template()
     print template.to_json()

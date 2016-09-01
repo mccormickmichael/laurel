@@ -1,10 +1,10 @@
 import unittest
 
-from scaffold.services.services_template import ServicesTemplate
+from scaffold.stile.stile_template import StileTemplate
 
 
-class TestServicesTemplate(unittest.TestCase):
+class TestStileTemplate(unittest.TestCase):
 
     def test_instantiate(self):
         # should pass without throwing any exceptions
-        ServicesTemplate('TestTemplate', 'vpc-deadbeef', '10.0.0.0/8', 'rtb-deadbeef', ['subnet-cab4abba'])
+        StileTemplate('TestTemplate', 'vpc-deadbeef', '10.0.0.0/8', 'rtb-deadbeef', ['subnet-cab4abba'])
