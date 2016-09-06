@@ -20,7 +20,7 @@ def new(profile_name, region_name, role_name):
     creds = response['Credentials']
     assumed_role = response['AssumedRoleUser']
 
-    logger.info('User %s is assuming role_name %s', user_name, assumed_role.a['Arn'])
+    logger.info('User %s is assuming role_name %s', user_name, assumed_role['Arn'])
 
     return boto3.session.Session(aws_access_key_id=creds['AccessKeyId'],
                                  aws_secret_access_key=creds['SecretAccessKey'],

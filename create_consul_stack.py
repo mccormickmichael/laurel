@@ -9,7 +9,7 @@ from scaffold.consul.consul_builder import ConsulBuilder
 
 
 def create_stack(args):
-    boto3_session = session.new(args.profile, args.region, args.role)x
+    boto3_session = session.new(args.profile, args.region, args.role)
     builder = ConsulBuilder(args, boto3_session, False)
     return builder.build(args.dry_run)
 
