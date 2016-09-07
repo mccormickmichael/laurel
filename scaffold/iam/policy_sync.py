@@ -72,6 +72,7 @@ class PolicySync(object):
             policy_name = policy.policy_name
             defined_document = policy_dict[policy_name]
             current_document = policy.default_version.document
+            logger.debug('checking policy %s', policy_name)
             if matches_aws_policy_doc(defined_document, current_document):
                 logger.debug('policy %s has not changed. No need to update.', policy_name)
             else:

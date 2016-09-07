@@ -1,9 +1,12 @@
 import json
 import logging
+import re
 
 from . import load_policy_map, create_user_arns, create_role_arns, matches_aws_policy_doc
 
 logger = logging.getLogger('laurel.iam.RoleSync')
+
+inline_cf_role_re = re.compile(r'[A-Za-z][A-Za-z0-9-]*-[A-Za-z0-9]+Role-[A-Z0-9]+')
 
 
 class RoleSync(object):
@@ -14,7 +17,7 @@ class RoleSync(object):
         self._policy_map = load_policy_map(boto3_session, iam_stack_name)
 
     def sync(self, roles_dict, dry_run):
-        current_roles = [r for r in self._iam.roles.all() if not r.name.startswith('aws-')]  # exclude aws-generated roles
+        current_roles = self._filter_current_roles(self._iam.roles.all())
 
         defined_role_names = roles_dict.keys()
         current_role_names = [r.name for r in current_roles]
@@ -158,5 +161,14 @@ class RoleSync(object):
         return principal
 
     def _get_account_id(self):
-        # Not sure this is the best way to do it.
-        return self._iam.CurrentUser().arn.split(':')[4]
+        sts = self._session.client('sts')
+        identity = sts.get_caller_identity()
+        return identity['Account']
+
+    @staticmethod
+    def _filter_current_roles(roles):
+        return [
+            r for r in roles if
+            not r.name.startswith('aws-') and    # exclude aws-generated roles
+            not inline_cf_role_re.match(r.name)  # exclude inline cloudformation roles
+        ]
