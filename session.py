@@ -24,4 +24,5 @@ def new(profile_name, region_name, role_name):
 
     return boto3.session.Session(aws_access_key_id=creds['AccessKeyId'],
                                  aws_secret_access_key=creds['SecretAccessKey'],
-                                 aws_session_token=creds['SessionToken'])
+                                 aws_session_token=creds['SessionToken'],
+                                 region_name=region_name)
