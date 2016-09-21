@@ -263,6 +263,7 @@ class ConsulTemplate(TemplateBuilder):
         self.add_resources(self.log_group)
 
     def create_server_iam_profile(self):
+        # TODO: use common ec2_assumerolepolicydocument
         role = iam.Role('ConsulInstanceRole',
                         AssumeRolePolicyDocument={
                             'Statement': [{

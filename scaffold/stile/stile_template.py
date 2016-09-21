@@ -116,6 +116,7 @@ class StileTemplate(TemplateBuilder):
         return group
 
     def create_nat_iam_profile(self):
+        # TODO: Use refactored common AssumeRolePolicyDocument for EC2. It's all the same
         role = iam.Role('NATInstanceRole',
                         AssumeRolePolicyDocument={
                             'Statement': [{
