@@ -1,0 +1,16 @@
+
+input {
+  beats {
+    port => 5044
+  }
+  # Anything else? For now rely on beats to ship logs to us.
+  # TODO: supply this conf file from the creator
+  
+}
+filter {
+  # ???
+}
+output {
+  elasticsearch { # defaults should be just fine for tiny
+  }
+}

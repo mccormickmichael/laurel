@@ -1,0 +1,108 @@
+Notes on installing ElasticSearch on a vanilla Amazon Linux box:
+
+JVM: the instance comes with OpenJDK 1.7.0. We want Oracle JRE 1.8.0 or better.
+
+
+Step 0) Delete the existing OpenJDK:
+
+sudo yum -y erase java*
+
+
+Step 1) Install the Oracle JDK:
+
+Unfortunately Oracle doesn't make it super easy to download a specific version. Let's at least start with the latest as of today:
+
+
+Our URL is http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm
+
+So according to "https://gist.github.com/rtfpessoa/17752cbf7156bdf32c59", we can do:
+
+java_base_version="8"
+java_sub_version="101"
+java_base_build="13"
+
+java_version="${java_base_version}u${java_sub_version}"
+java_build="b${java_base_build}"
+java_version_with_build="${java_version}-${java_build}"
+
+wget --no-cookies --header "Cookie: gpw_e24=xxx; oraclelicense=accept-securebackup-cookie;" "http://download.oracle.com/otn-pub/java/jdk/${java_version_with_build}/jdk-${java_version}-linux-x64.rpm"
+
+156M. Yikes.
+
+sudo rpm -i jdk-${java_version}-linux-x64.rpm
+
+(may have to add JAVA_HOME:
+
+> export JAVA_HOME=/usr/bin/java)
+
+
+Step 2: Download and install ElasticSearch
+
+Currently version 2.4.0
+
+wget https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/rpm/elasticsearch/2.4.0/elasticsearch-2.4.0.rpm
+
+26M. Also yikes.
+(caching in S3 and downloading from there is way faster, but from elastic.co only takes a couple of seconds))
+
+sudo rpm -i elasticsearch-2.4.0.rpm
+
+OR
+
+https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.4.0/elasticsearch-2.4.0.deb
+
+
+
+Step 3: Configure ElasticSearch
+
+Configuration files are written to /etc/elasticsearch
+Log files are written to /var/log/elasticsearch
+Data is written to /var/lib/elasticsearch
+
+/etc/elasticsearch/elasticsearch.yml : by default everything is commented out. Should be able to replace this with a yml file overriding any defaults
+/etc/elasticsearch/logging.yml : should be able to leave this alone.
+
+Things to change:
+
+
+Step N: start ES
+
+sudo service elasticsearch start
+
+
+This helped too:  https://survivalguides.wordpress.com/2015/12/17/installing-elastic-search/
+
+ES's page says that OpenJDK 1.7 is supported. Maybe try that so you don't have to install Oracle.
+
+
+Other steps:
+
+- Mounting a separate volume to store data:
+
+It might be desirable to store ES's data in a separate volume, so you can snapshot it independently from the OS and ES installation.
+
+http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.html
+
+> lsblk (list block devices)
+
+> sudo file -s /dev/{block_name}
+
+if type 'data', it has no filesystem.
+
+> sudo mkfs -t ext4 {device_name e.g. /dev/{block_name}}
+
+> sudo mkdir {mount_point}
+
+> sudo mount {device_name} {mount_point}
+
+add to fstab file (make a backup first
+
+{device_name}	{mount_point}	ext4	defaults,nofail,nobootwait	0	2
+
+validate:
+
+> sudo mount -a
+
+enable permissions
+
+> sudo chmod 0777 {mount_point}

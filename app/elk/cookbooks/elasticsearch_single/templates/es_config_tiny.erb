@@ -1,0 +1,21 @@
+# ======================== Elasticsearch2.4.0 Configuration =========================
+#
+# NOTE: Elasticsearch comes with reasonable defaults for most settings.
+#       Before you set out to tweak and tune the configuration, make sure you
+#       understand what are you trying to accomplish and the consequences.
+#
+# The primary way of configuring a node is via this file. This template lists
+# the most important settings you may want to configure for a production cluster.
+#
+# Please see the documentation for further information on configuration options:
+# <http://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration.
+
+cluster.name: laurel-tiny
+
+node.name: lonely-node-backdoor
+node.max_local_storage_nodes: 1
+
+bootstrap.memory_lock: true
+
+# network.host: <%= node['ipaddress'] %>
+

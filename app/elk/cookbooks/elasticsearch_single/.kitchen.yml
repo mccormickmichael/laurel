@@ -1,0 +1,24 @@
+---
+driver:
+  name: vagrant
+
+provisioner:
+  name: chef_zero
+
+verifier:
+  name: inspec
+
+platforms:
+  - name: ubuntu-14.04
+    driver:
+      customize:
+        memory: 1024
+
+suites:
+  - name: default
+    run_list:
+      - recipe[elasticsearch_single::default]
+    verifier:
+      inspec_tests:
+        - test/recipes
+    attributes:

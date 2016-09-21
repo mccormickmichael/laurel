@@ -1,0 +1,1 @@
+The files here were originally the Debian packages for ElasticSearch and Logstash. However, these are big binaries and I only had them here so I didn't have to keep downloading them. I'm not going to put them in Git

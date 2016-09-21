@@ -64,3 +64,8 @@ target/
 
 #OS X
 .DS_Store
+
+# Chef
+.chef/
+.delivery/
+Berksfile.lock

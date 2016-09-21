@@ -1,0 +1,6 @@
+# Assuming an Ubuntu server (because we're building our ES stack on Ubuntu)
+
+
+for now, work through the Chef tutorial. The tutorial uses Chef 16, and OpsWorks uses Chef 12. Hopefully not too many differences
+
+Starting with using Hosted Chef. Probably okay since OpsWorks basically has a hosted chef component.

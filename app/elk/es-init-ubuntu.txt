@@ -1,0 +1,44 @@
+Installng ElasticSearch on Ubuntu is different than installing on Amazon Linux:
+
+Signon: ubuntu@(host)
+
+apt-get -y update
+
+#!!! AWS CLI is not installed
+
+apt-get -y install awscli
+
+# !! Java is not installed. ES supposedly supports OpenJDK 1.7.0_55+ (currently 111)
+
+apt-get -y install openjdk-7-jre-headless
+
+# download ES from a local S3 cache or the internets:
+# if from S3, be sure to script auto-upload if it's missing!
+
+aws s3 cp s3://thousandleaves-us-west-2-laurel-deploy/scaffold/software/elasticsearch-2.4.0.deb elasticsearch-2.4.0.deb
+
+https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.4.0/elasticsearch-2.4.0.deb
+
+# install as a package:
+
+dpkg -i elasticsearch-2.4.0.deb
+
+# in case there are any missing packages:
+
+apt-get -fy install
+
+# set up to start ES on startup
+
+update-rc.d elasticsearch defaults 95 10
+
+#############
+# Pre-startup configuration goes here
+#############
+
+# startup
+
+/etc/init.d/elasticsearch start
+
+# Validate:
+
+curl 'localhost:9200/_cat/health?v'

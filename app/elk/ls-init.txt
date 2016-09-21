@@ -1,0 +1,54 @@
+installing logstash via package. Locations of stuff:
+
+configurations:
+
+/etc/logstash/conf.d (I assume logstash config files go here)
+
+log files:
+
+/var/log/logstash
+
+/var/lib/logstash ?? 
+
+Binary: 
+/opt/logstash/bin/logstash
+
+(The configuration is I think an executable Ruby DSL. I think Logstash is written in JRuby)
+
+The package I have is enormous and has a ton of packages. The ones I want are:
+
+Inputs:
+
+Beats (watches files) (check)
+File (also watches files) check
+http
+log4j
+pipe
+rabbitmq
+s3
+sqs
+stdin
+syslog
+tcp
+udp
+
+Pretty much everything you would want for log shippers.
+
+Outputs:
+
+CW
+ES
+graphite
+nagios
+s3
+sns
+sqs
+stdout
+tcp
+udp
+
+Also pretty much everything you'd want.
+
+Filters:
+
+anonymize, some parsers, etc. We'll see if I need anything.
