@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import logging
 import time
 
 import botocore
@@ -7,6 +8,11 @@ import botocore
 from . import Parameters
 from . import _get_stack
 
+logger = logging.getLogger('laurel.cf.operation')
+
+
+def _logging_cb(stack_id, stack_status, status_reason):
+    logger.info('%s - %s : %s', stack_id, stack_status, status_reason)
 
 def _printing_cb(stack_id, stack_status, status_reason):
     print '{0} - {1} : {2}'.format(stack_id, stack_status, status_reason if status_reason else '')
@@ -34,7 +40,7 @@ class StackOperation(object):
         self._key_prefix = key_prefix
         self._template_url = self._upload_template(template_body)
 
-    def create(self, stack_params={}, progress_callback=_printing_cb):
+    def create(self, stack_params={}, progress_callback=_logging_cb):
         cf = self._session.resource('cloudformation')
 
         parameters = Parameters(parms=stack_params)
@@ -51,7 +57,7 @@ class StackOperation(object):
         _monitor_stack(stack, ['CREATE_IN_PROGRESS', 'ROLLBACK_IN_PROGRESS'], progress_callback)
         return stack
 
-    def update(self, updated_stack_params={}, progress_callback=_printing_cb):
+    def update(self, updated_stack_params={}, progress_callback=_logging_cb):
         cf = self._session.resource('cloudformation')
 
         stack = cf.Stack(self._stack_name)
@@ -81,10 +87,10 @@ class StackDeleter(object):
         self._stack_name = stack_name
 
     def validate_stack_exists(self):
-        _get_stack(self._session, self._stack_name)
+        _get_stack(self._session, self._stack_name).load()  # this will throw if the stack does not exist.
         return True
 
-    def delete(self, progress_callback=_printing_cb):
+    def delete(self, progress_callback=_logging_cb):
         stack = _get_stack(self._session, self._stack_name)
         stack.delete()
         try:

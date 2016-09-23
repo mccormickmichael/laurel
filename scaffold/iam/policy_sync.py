@@ -29,7 +29,7 @@ class PolicySync(object):
         self._delete_policies(policies_to_delete, dry_run)
         self._create_policies(policies_to_create, policy_text_dict, dry_run)
         self._update_policies(policies_to_update, policy_text_dict, dry_run)
-        
+
         # policies_to_update
         #  - delete last version if version count > 4
         #  - create new version

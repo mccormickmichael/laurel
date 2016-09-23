@@ -17,6 +17,7 @@ def delete_stack(args):
         deleter.validate_stack_exists()
         return 'Stack {} exists'.format(args.stack_name)
 
+    deleter.validate_stack_exists()
     deleter.delete()
     return 'Stack {} deleted'.format(args.stack_name)
 
