@@ -4,6 +4,19 @@ import types
 from scaffold.cf.stack.elements import Outputs
 
 
+def service_role_policy_doc(service):
+    return {
+        'Statement': [{
+            'Effect': 'Allow',
+            'Principal': {'Service': [service]},
+            'Action': ['sts:AssumeRole']
+        }]
+    }
+
+service_role_policy_doc.ec2 = service_role_policy_doc('ec2.amazonaws.com')
+service_role_policy_doc.opsworks = service_role_policy_doc('opsworks.amazonaws.com')                        
+
+
 def load_policy_map(boto3_session, iam_stack_name=None):
     policy_map = {}
     iam = boto3_session.resource('iam')
