@@ -1,11 +1,16 @@
 from datetime import datetime
 import inspect
+import logging
 import os
+import tempfile
+import urllib2
 
 from scaffold.cf.stack.builder import StackBuilder
 from scaffold.cf import stack
 from .consul_template import ConsulTemplate
+from . import ConsulSoftware
 
+logger = logging.getLogger('laurel.consul.builder')
 
 class ConsulBuilder(StackBuilder):
     def __init__(self, args, session, is_update):
@@ -49,18 +54,46 @@ class ConsulBuilder(StackBuilder):
         )
 
     def do_before_create(self, dependencies, dry_run):
+
+        self._upload_config(dependencies.s3_key_prefix)
+        self._upload_consul()
+
+    def _upload_config(self, key_prefix):
+        s3 = self.session.resource('s3')
+        bucket = s3.Bucket(self.get_s3_bucket())
+
         base_dir = os.path.dirname(inspect.getfile(ConsulTemplate))
         base_dir = os.path.join(base_dir, 'config')
 
-        s3 = self.session.resource('s3')
-        bucket = s3.Bucket(self.get_s3_bucket())
         for dir_name, dir_list, file_list in os.walk(base_dir):
             for file_name in file_list:
                 file_path = os.path.join(dir_name, file_name)
-                key_path = '/'.join((dependencies.s3_key_prefix, os.path.relpath(file_path, base_dir)))
+                key_path = '/'.join((key_prefix, os.path.relpath(file_path, base_dir)))
                 with open(file_path, 'r') as f:
                     bucket.put_object(Key=key_path,
                                       Body=f.read())
+
+    def _upload_consul(self):
+        components = ConsulSoftware.components()
+        # WTF: Is there not a good way to check whether a key exists?
+        # Check the key prefix, if the count is < 3, assume nothing is there and upload everything
+        s3_client = self.session.client('s3')
+        response = s3_client.list_objects_v2(Bucket=self.get_s3_bucket(),
+                                             Prefix=ConsulSoftware.S3_KEY_PREFIX)
+        if response['KeyCount'] != len(components):
+            for component in components:
+                url = component['url']
+                key = component['s3_key']
+                # WTF 2: the response from urllib2 claims to be a file-like object but is not;
+                #        it is missing tell() (at least), so I can't just pass it to put_object;
+                #        pass it through a temp file, I guess.
+                with tempfile.TemporaryFile() as temp:
+                    logger.debug('%s -> %s', component['name'], url)
+                    temp.write(urllib2.urlopen(url).read())
+                    temp.seek(0)
+                    s3_client.put_object(Bucket=self.get_s3_bucket(),
+                                         Key=key,
+                                         Body=temp)
 
     def get_stack_parameters(self):
         stack_parms = {}

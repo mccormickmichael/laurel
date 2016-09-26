@@ -48,6 +48,7 @@ import troposphere as tp
 
 from scaffold.cf.template import asgtag, TemplateBuilder, AMI_REGION_MAP_NAME, REF_STACK_NAME
 from scaffold.cf import net
+from . import ConsulSoftware
 
 
 class ConsulTemplate(TemplateBuilder):
@@ -370,7 +371,10 @@ class ConsulTemplate(TemplateBuilder):
         return '{}/ui'.format(self._get_consul_dir())
 
     def _get_consul_source_prefix(self):
-        return 'http://{}.s3.amazonaws.com/{}'.format(self.bucket, self.key_prefix)
+        return self._get_s3_url(self.key_prefix)
+
+    def _get_s3_url(self, key_prefix):
+        return 'http://{}.s3.amazonaws.com/{}'.format(self.bucket, key_prefix)
 
     def _create_install_initconfig(self):
         config_consul_py = self._get_config_consul_py()
@@ -385,7 +389,7 @@ class ConsulTemplate(TemplateBuilder):
             # groups={}, # do we need a consul group?
             # users={}, # do we need a consul user?
             sources={
-                consul_agent_dir: 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_linux_amd64.zip'
+                consul_agent_dir: self._get_s3_url(ConsulSoftware.linux_s3_key())
             },
             files={
                 config_consul_py: {
@@ -489,7 +493,7 @@ class ConsulTemplate(TemplateBuilder):
                     'source': '{}/config_cwlogs.py'.format(source_prefix),
                     'mode': '000755',
                     'owner': 'root',
-                    'group': 'root'
+                    'group': 'rXoot'
                 }
 
             },
@@ -513,7 +517,7 @@ class ConsulTemplate(TemplateBuilder):
         consul_data_dir = self._get_consul_data_dir()
         return cf.InitConfig(
             sources={
-                ui_dir: 'https://releases.hashicorp.com/consul/0.6.3/consul_0.6.3_web_ui.zip'
+                ui_dir: self._get_s3_url(ConsulSoftware.ui_s3_key())
             },
             files={
                 # See https://www.consul.io/docs/agent/options.html#configuration_files
