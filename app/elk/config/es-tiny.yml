@@ -1,0 +1,44 @@
+# ======================== Elasticsearch Configuration =========================
+#
+# NOTE: Elasticsearch comes with reasonable defaults for most settings.
+#       Before you set out to tweak and tune the configuration, make sure you
+#       understand what are you trying to accomplish and the consequences.
+#
+# The primary way of configuring a node is via this file. This template lists
+# the most important settings you may want to configure for a production cluster.
+#
+# Please see the documentation for further information on configuration options:
+# <http://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration.html>
+#
+# ---------------------------------- Cluster -----------------------------------
+#
+cluster:
+  name: laurel-elk-tiny
+#
+# ------------------------------------ Node ------------------------------------
+#
+node:
+  name: laurel-elk-tiny
+  max_local_storage_nodes: 1
+#
+# ----------------------------------- Paths ------------------------------------
+#
+# ----------------------------------- Memory -----------------------------------
+#
+bootstrap:
+  memory_lock: true
+#
+# ---------------------------------- Network -----------------------------------
+#
+network:
+  host: REPLACE AT RUNTIME
+#
+# --------------------------------- Discovery ----------------------------------
+#
+# ---------------------------------- Gateway -----------------------------------
+#
+# ---------------------------------- Various -----------------------------------
+#
+action:
+    destructive_reqires_name: true
+

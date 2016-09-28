@@ -1,0 +1,12 @@
+
+apt-get -y update && apt-get -y upgrade
+apt-get -y install awscli openjdk-7-jre-headless
+
+# O M F G
+# A Y S M
+wget -P /tmp https://bootstrap.pypa.io/ez_setup.py
+python /tmp/ez_setup.py
+wget -P /tmp https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz 
+easy_install /tmp/aws-cfn-bootstrap-latest.tar.gz
+
+/usr/local/bin/cfn-init -v --stack (STACK) --resource (RESOURCE) --configsets (CONFIGSETS) --region (REGION)

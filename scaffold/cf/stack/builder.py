@@ -1,3 +1,4 @@
+import os
 
 from .operation import StackOperation
 from .elements import Summary
@@ -19,6 +20,26 @@ class Dependencies(object):
 
 class Parameters(object):
     pass
+
+
+class ConfigUploader(object):
+
+    def __init__(self, boto3_session, bucket_name):
+        self._session = boto3_session
+        self._bucket_name = bucket_name
+
+    def upload_to_s3(self, base_dir, key_prefix, mapping={}):
+        s3 = self._session.resource('s3')
+        bucket = s3.Bucket(self._bucket_name)
+        for dir_name, dir_list, file_list in os.walk(base_dir):
+            for file_name in file_list:
+                file_path = os.path.join(dir_name, file_name)
+                target_path = os.path.relpath(file_path, base_dir)
+                target_path = mapping.get(target_path, target_path)
+                key_path = '/'.join((key_prefix, target_path))
+                with open(file_path, 'r') as f:
+                    bucket.put_object(Key=key_path,
+                                      Body=f.read())
 
 
 # TODO: use the new abstract method pattern with abc

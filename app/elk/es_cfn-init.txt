@@ -1,0 +1,40 @@
+https://download.elastic.co/logstash/logstash/packages/debian/logstash-2.4.0_all.deb" /tmp/logstash-2.4.0.deb
+
+https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.4.0/elasticsearch-2.4.0.deb" /tmp/es-2.4.0.deb
+
+
+packages={
+  'apt': {
+    'elasticsearch': 'https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.4.0/elasticsearch-2.4.0.deb" /tmp/es-2.4.0.deb',
+    'logstash': 'https://download.elastic.co/logstash/logstash/packages/debian/logstash-2.4.0_all.deb" /tmp/logstash-2.4.0.deb'
+  },
+  'python': {
+    'boto3': []
+  }
+}
+
+# groups - no groups
+
+# users - no users
+
+# sources - no sources, I don't think
+
+files={
+  '/etc/elasticsearch/elasticsearch.yml': 'BLAH BLAH BLAH',
+  '/etc/logstash/conf.d/FIRST': 'BLAH BLAH BLAH'
+}
+
+commands
+
+services={
+  'sysvinit': {
+    'elasticsearch': {
+      'enabled': True,
+      'ensureRunning': True
+    },
+    'logstash': {
+      'enabled': True,
+      'ensureRunning': True
+    }
+  }
+}
