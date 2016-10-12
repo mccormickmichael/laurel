@@ -53,4 +53,4 @@ class ConsulSoftware(object):  # this name sucks.
 
     @classmethod
     def ui_s3_key(cls):
-        return cls.S3_KEY_PREFIX + cls.LINUX_NAME
+        return cls.S3_KEY_PREFIX + cls.WEB_NAME

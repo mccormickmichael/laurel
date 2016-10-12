@@ -383,7 +383,8 @@ class ConsulTemplate(TemplateBuilder):
         return cf.InitConfig(
             packages={
                 'python': {
-                    'boto3': []
+                    'botocore': ['1.4.60'],  # Lesson learned, pin versions.
+                    'boto3': ['1.4.1']       # boto3, why don't you declare botocore as a dependency?
                 }
             },
             # groups={}, # do we need a consul group?
@@ -493,7 +494,7 @@ class ConsulTemplate(TemplateBuilder):
                     'source': '{}/config_cwlogs.py'.format(source_prefix),
                     'mode': '000755',
                     'owner': 'root',
-                    'group': 'rXoot'
+                    'group': 'root'
                 }
 
             },
