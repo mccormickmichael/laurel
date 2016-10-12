@@ -40,6 +40,14 @@ import troposphere as tp
 
 from scaffold.cf.template import asgtag, TemplateBuilder, AMI_REGION_MAP_NAME, REF_REGION
 from scaffold.cf import net
+from scaffold.cf import AmiRegionMap
+
+
+AMI_MAP = {
+    'us-east-1': {'NAT': 'ami-303b1458', 'BASTION': 'ami-60b6c60a'},
+    'us-west-1': {'NAT': 'ami-7da94839', 'BASTION': 'ami-d5ea86b5'},
+    'us-west-2': {'NAT': 'ami-69ae8259', 'BASTION': 'ami-f0091d91'}
+}
 
 
 class StileTemplate(TemplateBuilder):
@@ -66,6 +74,10 @@ class StileTemplate(TemplateBuilder):
         self.region = region
         self.nat_instance_type = nat_instance_type
         self.bastion_instance_type = bastion_instance_type
+
+    def internal_add_mappings(self):
+        ami_map = AmiRegionMap(AMI_MAP)
+        self.add_mapping(AMI_REGION_MAP_NAME, ami_map)
 
     def internal_build_template(self):
         self.create_parameters()
