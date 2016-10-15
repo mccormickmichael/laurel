@@ -1,6 +1,7 @@
-# Define a CloudFormation template to host a tiny ELK stack. This stack hosts Logstash and Elasticsearch
-# on the same server in a private subnet, and hosts Kibana in a separate server in a public subnet.
-# The Logstash instance listens for logs shipped from Beats
+# Define a CloudFormation template to host a tiny ElasticSearch stack:
+# 1 ElasticSearch server
+# 1 Logstash indexing server
+# 1 Kibana server
 #
 # Template Parameters (provided at templat creation time):
 # - name
@@ -15,8 +16,11 @@
 #   ID of the VPC in which this stack is built
 # - vpc_cidr
 #   CIDR block of the vpc
-# - es_subnet_id
+# - es_subnets
 #   List of the subnet in which the Logstash/Elasticsearch server should be built.
+
+# Don't know about the rest of these...
+
 # - kibana_subnet_ids
 #   List of subnets in which the kibana server should be built.
 # - es_instance_type
@@ -36,25 +40,27 @@
 # - ElasticSearchENI
 #   ID of the elastic network interface attached to the Logstash/ElasticSearch server
 
-from scaffold.cf.template import TemplateBuilder, asgtag
-from scaffold.cf import net
-from scaffold.iam import service_role_policy_doc
-
 import troposphere as tp
 import troposphere.autoscaling as asg
 import troposphere.cloudformation as cf
 import troposphere.ec2 as ec2
+import troposphere.elasticloadbalancingv2 as elb2
 import troposphere.iam as iam
 
-from . import UserDataSegments
-from . import configsets
+
+from scaffold.cf.template import TemplateBuilder, asgtag, AMI_REGION_MAP_NAME, REF_REGION, REF_STACK_NAME
+from scaffold.cf import net
+from scaffold.cf import AmiRegionMap
+from scaffold.iam import service_role_policy_doc
+
+from .tiny_userdata import ESUserdata, LogstashUserdata
+from .tiny_initconfig import ESInitConfig, LogstashInitConfig
 
 
-AMI_REGION_MAP_NAME = 'AMIRegionMap'
 AMI_REGION_MAP = {
-    'us-east-1': {'ES': 'ami-3bdd502c', 'KIBANA': 'ami-3bdd502c'},
-    'us-west-1': {'ES': 'ami-48db9d28', 'KIBANA': 'ami-48db9d28'},
-    'us-west-2': {'ES': 'ami-d732f0b7', 'KIBANA': 'ami-d732f0b7'}
+    'us-east-1': {'ES': 'ami-60b6c60a', 'LOGSTASH': 'ami-60b6c60a', 'KIBANA': 'ami-60b6c60a'},
+    'us-west-1': {'ES': 'ami-d5ea86b5', 'LOGSTASH': 'ami-d5ea86b5', 'KIBANA': 'ami-d5ea86b5'},
+    'us-west-2': {'ES': 'ami-f0091d91', 'LOGSTASH': 'ami-f0091d91', 'KIBANA': 'ami-f0091d91'}
     # 'eu-west-1'
     # 'eu-central-1'
     # 'sa-east-1'
@@ -67,7 +73,7 @@ AMI_REGION_MAP = {
 
 class TinyElkTemplate(TemplateBuilder):
 
-    BUILD_PARM_NAMES = ['vpc_id', 'vpc_cidr', 'es_subnet_id', 'kibana_subnet_ids', 'es_instance_type', 'kibana_instance_type']
+    BUILD_PARM_NAMES = ['vpc_id', 'vpc_cidr', 'es_subnets']
 
     SERVER_KEY_PARM_NAME = 'ServerKey'
 
@@ -77,11 +83,9 @@ class TinyElkTemplate(TemplateBuilder):
                  bucket_key_prefix,
                  vpc_id,
                  vpc_cidr,
-                 es_subnet_id,
-                 kibana_subnet_ids,
-                 description='[REPLACEME]',
-                 es_instance_type='t2.micro',
-                 kibana_instance_type='t2.micro'):
+                 es_subnets,
+                 create_logstash=False,
+                 description='[REPLACEME]'):
         super(TinyElkTemplate, self).__init__(name, description, TinyElkTemplate.BUILD_PARM_NAMES)
 
         self.region = region
@@ -89,232 +93,241 @@ class TinyElkTemplate(TemplateBuilder):
         self.bucket_key_prefix = bucket_key_prefix
         self.vpc_id = vpc_id
         self.vpc_cidr = vpc_cidr
-        self.es_subnet_id = es_subnet_id
-        self.kibana_subnet_ids = kibana_subnet_ids
-        self.es_instance_type = es_instance_type
-        self.kibana_instance_type = kibana_instance_type
+        self.es_subnets = es_subnets
 
     def internal_add_mappings(self):
-        self.template.add_mapping(AMI_REGION_MAP_NAME, AMI_REGION_MAP)
+        self.add_mapping(AMI_REGION_MAP_NAME, AmiRegionMap(AMI_REGION_MAP))
 
     def internal_build_template(self):
         self.create_parameters()
 
+        self._create_common()
+
         self.create_elasticsearch()
         self.create_kibana()
+        if self.create_logstash:
+            self.create_logstash()
 
     def create_parameters(self):
-        self.add_parameter(tp.Parameter(self.SERVER_KEY_PARM_NAME, Type='String'))
+        self.add_parameter(tp.Parameter(TinyElkTemplate.SERVER_KEY_PARM_NAME, Type='String'))
+
+    def _create_common(self):
+        self.ssh_sg = self._create_simple_sg('ElkSSHSecurityGroup', 'Security Group for accessing Elk stack instances', net.SSH)
+
+    def _create_simple_sg(self, name, description, port_ranges):
+        if type(port_ranges) is not list:
+            port_ranges = [port_ranges]
+        rules = [net.sg_rule(self.vpc_cidr, port, net.TCP) for port in port_ranges]
+        sg = ec2.SecurityGroup(name,
+                               GroupDescription=description,
+                               SecurityGroupIngress=rules,
+                               VpcId=self.vpc_id,
+                               Tags=self.default_tags)
+        self.add_resource(sg)
+        return sg
 
     def create_elasticsearch(self):
-        sg = self._create_es_sg()
-        iam_profile = self._create_es_iam_profile()
-        eni = self._create_es_eni(sg)
-        self._create_es_asg(sg, iam_profile, eni)
+        es_sg = self._create_es_sg()
+        es_tg = self._create_es_target_group()
+        self.es_elb = self._create_es_elb(es_tg)
+        self._create_es_asg(es_sg, es_tg)
 
     def _create_es_sg(self):
-        ingress_rules = [
-            net.sg_rule(self.vpc_cidr, (9200, 9400), net.TCP),  # Elasticsearch
-            net.sg_rule(self.vpc_cidr, 5044, net.TCP),  # Beats
-            net.sg_rule(self.vpc_cidr, 22, net.TCP)     # SSH. Remove if you don't need it.
-        ]
-        elasticsearch_sg = ec2.SecurityGroup('ElasticsearchSecurityGroup',
-                                             GroupDescription='SecurityGroup for ElasticSearch and Logstash',
-                                             SecurityGroupIngress=ingress_rules,
-                                             VpcId=self.vpc_id,
-                                             Tags=self.default_tags)
-        self.add_resource(elasticsearch_sg)
-        self.output_ref('ElasticsearchSG', elasticsearch_sg)
-        return elasticsearch_sg
+        return self._create_simple_sg('ElasticsearchSecurityGroup', 'Security Group for Elasticsearch nodes', (9200, 9400))
+
+    def _create_es_target_group(self):
+        target_group = elb2.TargetGroup('ElasticsearchTargetGroup',
+                                        HealthCheckIntervalSeconds=60,
+                                        HealthCheckPath='/_cluster/health',
+                                        HealthCheckPort=9200,
+                                        HealthCheckProtocol='HTTP',
+                                        HealthCheckTimeoutSeconds=5,
+                                        HealthyThresholdCount=2,
+                                        UnhealthyThresholdCount=2,
+                                        Matcher=elb2.Matcher(HttpCode='200-299'),
+                                        Name='ElasticsearchTiny',
+                                        Port=9200,
+                                        Protocol='HTTP',
+                                        Tags=self.default_tags,
+                                        VpcId=self.vpc_id)
+        self.add_resource(target_group)
+        return target_group
+
+    def _create_es_elb(self, target_group):
+        sg = ec2.SecurityGroup('ElasticsearchELBSecurityGroup',
+                               GroupDescription='Security Group for the Elasticsearch ELB',
+                               SecurityGroupIngress=[net.sg_rule(self.vpc_cidr, 9200, net.TCP)],
+                               VpcId=self.vpc_id,
+                               Tags=self.default_tags)
+        elb = elb2.LoadBalancer('ElasticsearchELB',
+                                Name='ElasticsearchTiny',
+                                Scheme='internal',
+                                SecurityGroups=[tp.Ref(sg)],
+                                Subnets=self.es_subnets,
+                                Tags=self.default_tags)
+        listener = elb2.Listener('ElasticsearchELBListener',
+                                 DefaultActions=[elb2.Action(TargetGroupArn=tp.Ref(target_group),
+                                                             Type='forward')],
+                                 LoadBalancerArn=tp.Ref(elb),
+                                 Port=9200,
+                                 Protocol='HTTP')
+        self.add_resources(sg, elb, listener)
+        self.output(elb)
+        self.output_named('ElasticsearchDNSName', tp.GetAtt(elb.title, 'DNSName'))
+        return elb
+
+    def _create_es_asg(self, sg, target_group):
+        asg_name = 'ElasticsearchASG'
+        lc = asg.LaunchConfiguration('ElasticsearchLC',
+                                     ImageId=tp.FindInMap(AMI_REGION_MAP_NAME, REF_REGION, 'ES'),
+                                     InstanceType='t2.micro',  # TODO: how should we parameterize this?
+                                     IamInstanceProfile=tp.Ref(self._create_es_iam_profile()),
+                                     SecurityGroups=[tp.Ref(sg), tp.Ref(self.ssh_sg)],
+                                     KeyName=tp.Ref(TinyElkTemplate.SERVER_KEY_PARM_NAME),
+                                     InstanceMonitoring=False,
+                                     AssociatePublicIpAddress=False,
+                                     UserData=self._create_es_userdata(asg_name))
+        group = asg.AutoScalingGroup(asg_name,
+                                     MinSize=1,
+                                     MaxSize=1,
+                                     LaunchConfigurationName=tp.Ref(lc),
+                                     TargetGroupARNs=[tp.Ref(target_group)],
+                                     VPCZoneIdentifier=self.es_subnets,
+                                     Tags=asgtag(self._rename('{} Elasticsearch')),
+                                     Metadata=self._create_es_initconfig())
+        self.add_resources(lc, group)
+        self.output(group)
+        return group
 
     def _create_es_iam_profile(self):
-        policy = iam.Policy(
-            PolicyName='ElasticsearchInstance',
-            PolicyDocument={
-                'Statement': [{
-                    'Effect': 'Allow',
-                    'Resource': ['*'],
-                    'Action': ['ec2:Attach*', 'ec2:Describe*']
-                }, {
-                    'Effect': 'Allow',
-                    'Resource': 'arn:aws:s3:::{}/*'.format(self.bucket),
-                    'Action': ['s3:Get*']
-                }]
-            })
         role = iam.Role('ElasticsearchInstanceRole',
                         AssumeRolePolicyDocument=service_role_policy_doc.ec2,
-                        Policies=[policy])
+                        Policies=[
+                            iam.Policy(
+                                PolicyName='ElasticsearchInstance',
+                                PolicyDocument={
+                                    'Statement': [{
+                                        'Effect': 'Allow',
+                                        'Resource': 'arn:aws:s3:::{}/*'.format(self.bucket),
+                                        'Action': ['s3:Get*']
+                                    }]
+                                }
+                            )
+                        ])
         profile = iam.InstanceProfile('ElasticsearchInstanceProfile',
                                       Path='/',
                                       Roles=[tp.Ref(role)])
         self.add_resources(role, profile)
         return profile
 
-    def _create_es_eni(self, sg):
-        eni = ec2.NetworkInterface('ElasticsearchENI',
-                                   Description='ENI for the Elasticsearch server node',
+    def _create_es_userdata(self, resource_name):
+        items = ESUserdata(REF_STACK_NAME, resource_name, ['default'], REF_REGION).items()
+        return tp.Base64(tp.Join('', items))
+
+    def _create_es_initconfig(self):
+        init = ESInitConfig()
+        return cf.Init(
+            cf.InitConfigSets(
+                default=['elasticsearch']
+            ),
+            elasticsearch=cf.InitConfig(
+                packages=init.packages(),
+                files=init.files(),
+                services=init.services()
+            )
+        )
+
+    def create_logstash(self):
+        ls_sg = self._create_ls_sg()
+        ls_eni = self._create_ls_eni(ls_sg)
+        self._create_ls_asg(ls_eni)
+
+    def _create_ls_sg(self):
+        return self._create_simple_sg('LogstashIndexSG', 'Security Group for Logstash indexing nodes', 5044)
+
+    def _create_ls_eni(self, sg):
+        eni = ec2.NetworkInterface('LogstashIndexENI',
+                                   Description='ENI for the Logstash indexer',
                                    GroupSet=[tp.Ref(sg)],
                                    SourceDestCheck=True,
-                                   SubnetId=self.es_subnet_id,
-                                   Tags=self._rename('{} ES ENI'))
-        self.es_eni = eni
+                                   SubnetId=self.es_subnets[0],  # TODO: is there a better way to allocate? I dunno.
+                                   Tags=self.default_tags)
         self.add_resource(eni)
         self.output(eni)
         return eni
 
-    def _create_es_asg(self, sg, iam_profile, eni):
-        asg_name = 'ElasticsearchASG'
-
-        user_data = self._create_es_userdata(asg_name, eni)
-        lc = asg.LaunchConfiguration('ElasticsearchLC',
-                                     ImageId=tp.FindInMap(AMI_REGION_MAP_NAME, self.region, 'ES'),
-                                     InstanceType=self.es_instance_type,
-                                     SecurityGroups=[tp.Ref(sg)],
-                                     KeyName=tp.Ref(self.SERVER_KEY_PARM_NAME),
-                                     IamInstanceProfile=tp.Ref(iam_profile),
+    def _create_ls_asg(self, eni):
+        asg_name = 'LogstashIndexASG'
+        lc = asg.LaunchConfiguration('LogstashIndexLC',
+                                     ImageId=tp.FindInMap(AMI_REGION_MAP_NAME, REF_REGION, 'LOGSTASH'),
+                                     InstanceType='t2.micro',  # TODO: how should we parameterize this?
+                                     IamInstanceProfile=tp.Ref(self._create_ls_iam_profile()),
+                                     SecurityGroups=[tp.Ref(self.ssh_sg)],
+                                     KeyName=tp.Ref(TinyElkTemplate.SERVER_KEY_PARM_NAME),
                                      InstanceMonitoring=False,
                                      AssociatePublicIpAddress=False,
-                                     UserData=user_data)
+                                     UserData=self._create_ls_userdata(asg_name, eni))
         group = asg.AutoScalingGroup(asg_name,
                                      MinSize=1,
                                      MaxSize=1,
                                      LaunchConfigurationName=tp.Ref(lc),
-                                     VPCZoneIdentifier=[self.es_subnet_id],
-                                     Tags=asgtag(self._rename('{} Elasticsearch')))
-        group.Metadata = self._create_es_metadata()
+                                     VPCZoneIdentifier=[eni.SubnetId],
+                                     Tags=asgtag(self._rename('{} Logstash')),
+                                     Metadata=self._create_ls_initconfig())
         self.add_resources(lc, group)
-
         self.output(group)
+        return group
 
-    def _create_es_userdata(self, asg_name, eni):
-        startup = self._common_userdata() \
-                  + UserDataSegments.attach_eni(eni) \
-                  + UserDataSegments.eni_to_ip(eni, '/tmp/es_network_host') \
-                  + UserDataSegments.invoke_cfn_init(asg_name, self._es_configset_names())
-        return tp.Base64(tp.Join('', startup))
-
-    def _create_es_metadata(self):
-        return cf.Metadata(
-            self._create_es_cf_init()
-        )
-
-    # TODO: it seems we could do a better job tying these into the configset names.
-    def _create_es_cf_init(self):
-        network_config = configsets.NetworkInterfaceAttach()
-        es_config = configsets.Elasticsearch(self.bucket, self.bucket_key_prefix)
-        ls_config = configsets.Logstash(self.bucket, self.bucket_key_prefix)
-        return cf.Init(
-            cf.InitConfigSets(
-                elasticsearch=['network_attach', 'es_config'],
-                logstash=['ls_config']
-            ),
-            network_attach=network_config.config(),
-            es_config=es_config.config(),
-            ls_config=ls_config.config()
-        )
-
-    # TODO: it seems we could do a better job tying these names into the above method.
-    def _es_configset_names(self):
-        return ['elasticsearch', 'logstash']
-
-    def create_kibana(self):
-        sg = self._create_kibana_sg()
-        iam_profile = self._create_kibana_iam_profile()
-        self._create_kibana_asg(sg, iam_profile)
-
-    def _create_kibana_sg(self):
-        ingress_rules = [
-            net.sg_rule(net.CIDR_ANY, port, net.TCP) for port in (80, 443)
-        ] + [
-            net.sg_rule(self.vpc_cidr, 22, net.TCP)  # SSH. Remove if you don't need it.
-        ]
-        kibana_sg = ec2.SecurityGroup('KibanaSecurityGroup',
-                                      GroupDescription='SecurityGroup for Kibana',
-                                      SecurityGroupIngress=ingress_rules,
-                                      VpcId=self.vpc_id,
-                                      Tags=self.default_tags)
-        self.add_resource(kibana_sg)
-        self.output_ref('KibanaSG', kibana_sg)
-        return kibana_sg
-
-    def _create_kibana_iam_profile(self):
-        policy = iam.Policy(
-            PolicyName='KibanaInstance',
-            PolicyDocument={
-                'Statement': [{
-                    'Effect': 'Allow',
-                    'Resource': ['*'],
-                    'Action': ['ec2:Attach*', 'ec2:Describe*']
-                }, {
-                    'Effect': 'Allow',
-                    'Resource': 'arn:aws:s3:::{}/*'.format(self.bucket),
-                    'Action': ['s3:Get*']
-                }]
-            })
-        role = iam.Role('KibanaInstanceRole',
+    def _create_ls_iam_profile(self):
+        role = iam.Role('LogstashInstanceRole',
                         AssumeRolePolicyDocument=service_role_policy_doc.ec2,
-                        Policies=[policy])
-        profile = iam.InstanceProfile('KibanaInstanceProfile',
+                        Policies=[
+                            iam.Policy(
+                                PolicyName='LogstashInstance',
+                                PolicyDocument={
+                                    'Statement': [{
+                                        'Effect': 'Allow',
+                                        'Resource': 'arn:aws:s3:::{}/*'.format(self.bucket),
+                                        'Action': ['s3:Get*']
+                                    }, {
+                                        'Effect': 'Allow',
+                                        'Resource': '*',
+                                        'Action': ['ec2:Attach*', 'ec2:Describe*']
+                                    }]
+                                }
+                            )
+                        ])
+        profile = iam.InstanceProfile('LogstashInstanceProfile',
                                       Path='/',
                                       Roles=[tp.Ref(role)])
         self.add_resources(role, profile)
         return profile
 
-        return None
+    def _create_ls_userdata(self, resource_name, eni):
+        userdata = LogstashUserdata(eni_id=tp.Ref(eni),
+                                    es_host_ref=tp.GetAtt(self.es_elb.title, 'DNSName'),
+                                    stack_ref=REF_STACK_NAME,
+                                    resource_name=resource_name,
+                                    configsets=['default'],
+                                    region=REF_REGION)
+        return tp.Base64(tp.Join('', userdata.items()))
 
-    def _create_kibana_asg(self, sg, iam_profile):
-        asg_name = 'KibanaASG'
-        user_data = self._create_kibana_userdata(asg_name, self.es_eni)  # TODO: this implicit instance variable is icky
-        lc = asg.LaunchConfiguration('KibanaLC',
-                                     ImageId=tp.FindInMap(AMI_REGION_MAP_NAME, self.region, 'KIBANA'),
-                                     InstanceType=self.kibana_instance_type,
-                                     SecurityGroups=[tp.Ref(sg)],
-                                     KeyName=tp.Ref(self.SERVER_KEY_PARM_NAME),
-                                     IamInstanceProfile=tp.Ref(iam_profile),
-                                     InstanceMonitoring=False,
-                                     AssociatePublicIpAddress=True,  # TODO: point to an ELB or Route53 entry instead?
-                                     UserData=user_data)
-        group = asg.AutoScalingGroup(asg_name,
-                                     MinSize=1,
-                                     MaxSize=1,
-                                     LaunchConfigurationName=tp.Ref(lc),
-                                     VPCZoneIdentifier=self.kibana_subnet_ids,
-                                     Tags=asgtag(self._rename('{} Kibana')))
-        group.Metadata = self._create_kibana_metadata()
-
-        self.add_resources(lc, group)
-        self.output(group)
-
-    def _create_kibana_userdata(self, asg_name, es_eni):
-        startup = self._common_userdata() \
-                  + UserDataSegments.eni_to_ip(es_eni, '/tmp/es_network_host') \
-                  + UserDataSegments.invoke_cfn_init(asg_name, self._kibana_configset_names())
-        return tp.Base64(tp.Join('', startup))
-
-    def _create_kibana_metadata(self):
-        return cf.Metadata(
-            self._create_kibana_cf_init()
-        )
-
-    # TODO: it seems we could do a better job tying these into the configset names.
-    def _create_kibana_cf_init(self):
-        kib_config = configsets.Kibana(self.bucket, self.bucket_key_prefix)
+    def _create_ls_initconfig(self):
+        init = LogstashInitConfig(self.bucket, self.bucket_key_prefix)
         return cf.Init(
             cf.InitConfigSets(
-                kibana=['kibana_config']
+                default=['logstash']
             ),
-            kibana_config=kib_config.config()
+            logstash=cf.InitConfig(
+                packages=init.packages(),
+                files=init.files(),
+                commands=init.commands(),
+                services=init.services()
+            )
         )
 
-    def _kibana_configset_names(self):
-        return ['kibana']
-
-    def _common_userdata(self):
-        return UserDataSegments.preamble() \
-            + UserDataSegments.install_elastic_repos() \
-            + UserDataSegments.install_apt_packages() \
-            + UserDataSegments.install_cfn_init()
-
+    def create_kibana(self):
+        pass
 
 if __name__ == '__main__':
     t = TinyElkTemplate('Testing',
@@ -323,8 +336,8 @@ if __name__ == '__main__':
                         bucket_key_prefix='my_bucket_prefix',
                         vpc_id='vpc-deadbeef',
                         vpc_cidr='10.0.0.0/16',
-                        es_subnet_id='subnet-deadbeef',
-                        kibana_subnet_ids=['subnet-cab4abba'],
+                        es_subnets=['subnet-deadbeef', 'subnet-cab4abba'],
+                        create_logstash=False,
                         description='Testing')
     t.build_template()
     print(t.to_json())

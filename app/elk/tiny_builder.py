@@ -1,7 +1,6 @@
 from datetime import datetime
 import inspect
 import os
-import random
 
 from scaffold.cf.stack.builder import StackBuilder, ConfigUploader
 from scaffold.cf import stack
@@ -25,7 +24,7 @@ class TinyElkBuilder(StackBuilder):
         dependencies.vpc_id = outputs['VpcId']
         dependencies.vpc_cidr = outputs['VpcCidr']
         dependencies.es_subnet_ids = outputs.values(lambda k: 'PrivateSubnet' in k)
-        dependencies.kibana_subnet_ids = outputs.values(lambda k: 'PublicSubnet' in k)
+        # dependencies.kibana_subnet_ids = outputs.values(lambda k: 'PublicSubnet' in k)
 
     def get_capabilities(self):
         # The elk stack contains inline policy resources. Explicitly acknowledge it here.
@@ -44,22 +43,18 @@ class TinyElkBuilder(StackBuilder):
             bucket_key_prefix=dependencies.s3_key_prefix,
             vpc_id=dependencies.vpc_id,
             vpc_cidr=dependencies.vpc_cidr,
-            es_subnet_id=build_parameters.es_subnet_id if build_parameters.es_subnet_id else random.choice(dependencies.es_subnet_ids),
-            kibana_subnet_ids=dependencies.kibana_subnet_ids,
-            description=build_parameters.description if argy.desc is None else argy.desc,
-            es_instance_type=build_parameters.es_instance_type if argy.es_instance_type is None else argy.es_instance_type,
-            kibana_instance_type=build_parameters.kibana_instance_type if argy.kibana_instance_type is None else argy.kibana_instance_type
+            es_subnets=build_parameters.es_subnets if build_parameters.es_subnets else dependencies.es_subnet_ids,
+            description=build_parameters.description if argy.desc is None else argy.desc
         )
+    # kibana_subnet_ids=dependencies.kibana_subnet_ids,
+    # es_instance_type=build_parameters.es_instance_type if argy.es_instance_type is None else argy.es_instance_type,
+    # kibana_instance_type=build_parameters.kibana_instance_type if argy.kibana_instance_type is None else argy.kibana_instance_type
 
     def do_before_create(self, dependencies, dry_run):
         base_dir = os.path.dirname(inspect.getfile(TinyElkTemplate))
         base_dir = os.path.join(base_dir, 'config')
 
-        # the logstash configuration script only works on logstash.conf to avoid leaving extraneous files
-        mapping = {
-            'ls-tiny.conf': 'logstash.conf'
-        }
-        ConfigUploader(self.session, self.get_s3_bucket()).upload_to_s3(base_dir, dependencies.s3_key_prefix, mapping)
+        ConfigUploader(self.session, self.get_s3_bucket()).upload_to_s3(base_dir, dependencies.s3_key_prefix)
 
     def get_stack_parameters(self):
         stack_parms = {}

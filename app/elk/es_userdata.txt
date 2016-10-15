@@ -1,3 +1,24 @@
+# AMAZON LINUX
+
+(cfn-init and openjdk-7 are already installed)
+
+#!/bin/bash
+yum -y update&& yum -y install yum-cron && chkconfig yum-cron on
+
+# see: https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-repositories.html for info on installing the elastic.co repository.
+
+# or download the RPM directly:
+
+wget -O /tmp/elasticsearch.rpm https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/rpm/elasticsearch/2.4.1/elasticsearch-2.4.1.rpm
+
+yum -y install /tmp/elasticsearch.rpm
+
+/etc/elasticsearch/elasticsearch.yml
+
+service elasticsearch start
+
+
+# UBUNTU
 
 apt-get -y update && apt-get -y upgrade
 apt-get -y install awscli openjdk-7-jre-headless

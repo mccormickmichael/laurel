@@ -1,14 +1,17 @@
+import sys
 from string import Template
 
-with open('ls_conf.conf', 'r') as f:
+source_file = sys.argv[1]
+
+with open(source_file, 'r') as f:
     ls_config = f.read()
 
 # this magic file is written out by our userdata script
-with open('/tmp/es_network_host', 'r') as f:
-    es_network_host = f.read().strip().strip('"')
+with open('/tmp/es_host', 'r') as f:
+    es_host = f.read().strip()
 
 mapping = {
-    'ES_HOST': es_network_host
+    'ES_HOST': es_host
 }
 ls_config = Template(ls_config).substitute(mapping)
 

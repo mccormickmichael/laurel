@@ -312,7 +312,6 @@ class ConsulTemplate(TemplateBuilder):
             'REGION=', self.region, '\n',
             'ENI_ID=', tp.Ref(eni), '\n',
             'INS_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)\n'
-            # TODO: do we need a sleep/check loop here? It hasn't failed so far
             'aws ec2 attach-network-interface --instance-id $INS_ID --device-index 1 --network-interface-id $ENI_ID --region $REGION\n',
             'mkdir -p -m 0755 /opt/consul\n'
             'echo "', cluster_index, '" > /opt/consul/cluster_index\n',
@@ -323,7 +322,7 @@ class ConsulTemplate(TemplateBuilder):
             '  --configsets install_server',
             '  --region $REGION\n',
         ]
-        return tp.Base64(tp.Join('', startup))  # TODO: There has GOT to be a better way to do userdata.
+        return tp.Base64(tp.Join('', startup))  # TODO: There has GOT to be a better way to do userdata. UPDATE: there is, a bit. See ELK stack.
 
     def _create_ui_userdata(self):
         resource_name = self._server_asg_name(0)
@@ -338,7 +337,7 @@ class ConsulTemplate(TemplateBuilder):
             '  --configsets install_ui',
             '  --region $REGION\n',
         ]
-        return tp.Base64(tp.Join('', startup))  # TODO: There has GOT to be a better way to do userdata.
+        return tp.Base64(tp.Join('', startup))  # TODO: There has GOT to be a better way to do userdata. UPDATE: there is, a bit. See ELK stack.
 
     def _create_server_metadata(self):
         return cf.Metadata(
