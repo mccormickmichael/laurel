@@ -13,7 +13,6 @@ class TestTinyElkTemplate(unittest.TestCase):
                             bucket_key_prefix='my_bucket_prefix',
                             vpc_id='vpc-deadbeef',
                             vpc_cidr='10.0.0.0/16',
-                            es_subnet_ids=['subnet-deadbeef'],
-                            kibana_subnet_ids=['subnet-cab4abba'],
+                            es_subnets=['subnet-deadbeef'],
                             description='Testing')
         t.build_template()
