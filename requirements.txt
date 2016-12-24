@@ -1,5 +1,5 @@
 PyYAML >= 3.11
 awacs >= 0.5.3
 troposphere >= 1.8.0
-boto3 >= 1.2.0  # TODO: UPDATE
+boto3 >= 1.4.3
 # TODO: botocore?
