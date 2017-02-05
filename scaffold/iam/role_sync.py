@@ -169,6 +169,6 @@ class RoleSync(object):
     def _filter_current_roles(roles):
         return [
             r for r in roles if
-            not r.name.startswith('aws-') and    # exclude aws-generated roles
+            not r.name.lower().startswith('aws-') and    # exclude aws-generated roles
             not inline_cf_role_re.match(r.name)  # exclude inline cloudformation roles
         ]
