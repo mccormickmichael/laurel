@@ -62,5 +62,7 @@ target/
 .idea
 .ropeproject
 
+# terraform
+.terraform/
 #OS X
 .DS_Store
