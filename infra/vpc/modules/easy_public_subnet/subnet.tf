@@ -60,6 +60,15 @@ resource "aws_network_acl" "nacl" {
     cidr_block = "0.0.0.0/0"
     action = "allow"
   }
+  ingress { # OpenVPN from public
+    rule_no = 101
+    protocol = "tcp"
+    from_port = 943
+    to_port = 943
+    cidr_block = "0.0.0.0/0"
+    action = "allow"
+  }
+
   ingress { # Ephemeral return
     rule_no = 150
     protocol = "tcp"
