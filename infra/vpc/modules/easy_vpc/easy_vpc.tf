@@ -1,4 +1,4 @@
-variable "vpc_cidr_block" {
+variable "cidr_block" {
   type = "string"
 }
 
@@ -11,7 +11,7 @@ variable "stack" {
 }
 
 resource "aws_vpc" "vpc" {
-  cidr_block = "${var.vpc_cidr_block}"
+  cidr_block = "${var.cidr_block}"
   tags {
     Name = "${var.prefix}VPC"
     Terraform = "${var.stack}"
@@ -21,7 +21,7 @@ resource "aws_vpc" "vpc" {
 resource "aws_internet_gateway" "igw" {
   vpc_id = "${aws_vpc.vpc.id}"
   tags {
-    Name = "${var.prefix}InternetGateway"
+    Name = "${var.prefix}VPC"
     Terraform = "${var.stack}"
   }
 }
@@ -33,3 +33,4 @@ output "vpc_id" {
 output "igw_id" {
   value = "${aws_internet_gateway.igw.id}"
 }
+

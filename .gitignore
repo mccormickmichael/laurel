@@ -64,5 +64,7 @@ target/
 
 # terraform
 .terraform/
+terraform.tfstate.backup
+
 #OS X
 .DS_Store
