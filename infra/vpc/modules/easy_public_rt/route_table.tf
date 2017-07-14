@@ -22,7 +22,7 @@ resource "aws_route_table" "rt" {
     gateway_id = "${var.igw_id}"
   }
   tags {
-    Name = "${var.prefix}PublicRouteTable"
+    Name = "${var.prefix}Public"
     Terraform = "${var.stack}"
   }
 }

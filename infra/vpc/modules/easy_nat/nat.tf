@@ -73,7 +73,7 @@ resource "aws_security_group" "nat_sg" {
     cidr_blocks = [ "0.0.0.0/0" ]
   }
   tags {
-    Name = "${var.prefix}NATSecurityGroup"
+    Name = "${var.prefix}NAT"
     Terraform = "${var.stack}"
   }
 }
@@ -93,7 +93,7 @@ aws ec2 delete-route --destination-cidr-block 0.0.0.0/0 --route-table-id ${var.p
 aws ec2 create-route --route-table-id ${var.private_rt_id} --destination-cidr-block 0.0.0.0/0 --instance-id $INS_ID --region us-west-2
 EOF
   tags {
-    Name = "${var.prefix}NATInstance"
+    Name = "${var.prefix}NAT"
     Terraform = "${var.stack}"
   }
 

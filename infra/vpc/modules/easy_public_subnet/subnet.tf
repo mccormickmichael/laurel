@@ -36,7 +36,7 @@ resource "aws_subnet" "subnet" {
   availability_zone = "${var.az}"
   map_public_ip_on_launch = true
   tags {
-    Name = "${var.prefix}PublicSubnet${var.suffix}"
+    Name = "${var.prefix}Public${var.suffix}"
     Terraform = "${var.stack}"
   }
 }
@@ -102,7 +102,7 @@ resource "aws_network_acl" "nacl" {
     action = "allow"
   }
   tags {
-    Name = "${var.prefix}PublicSubnet${var.suffix}Nacl"
+    Name = "${var.prefix}Public${var.suffix}"
     Terraform = "${var.stack}"
   }
 }

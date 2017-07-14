@@ -16,7 +16,7 @@ resource "aws_route_table" "rt" {
   # The Private Route Table ships with no routes. Another module or external process should attach routes as appropriate.
 
   tags {
-    Name = "${var.prefix}PrivateRouteTable"
+    Name = "${var.prefix}Private"
     Terraform = "${var.stack}"
   }
 }
