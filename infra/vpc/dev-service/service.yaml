@@ -1,0 +1,375 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description:
+  'Defines a VPC for testing cross-environment services. Compare with Terraform.'
+
+# Metadata:
+#   template metadata
+# Parameters:
+#   vpc cidr block: carving up a vpc cidr block for subnets is not easy in CF
+#                   so they are hard-coded in this template.
+# Mappings:
+#   set of mappings
+# Conditions:
+# set of conditions
+# Transform:
+#   set of transforms
+
+Resources:
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: '172.17.0.0/16'
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
+  IGW:
+    Type: 'AWS::EC2::InternetGateway'
+
+  IGWAttach:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref IGW
+      VpcId: !Ref VPC
+
+#### Public Route Table
+      
+  PublicRT:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRouteAll:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      RouteTableId: !Ref PublicRT
+      GatewayId: !Ref IGW
+
+#### Public Subnet
+
+  PublicSubnetC:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: 'us-west-2c'
+      CidrBlock: '172.17.0.0/19'
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: true
+
+  PublicSubnetCRTAssoc:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PublicRT
+      SubnetId: !Ref PublicSubnetC
+
+  PublicNacl:
+    Type: 'AWS::EC2::NetworkAcl'
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicNaclRuleEgress:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 100
+      CidrBlock: '0.0.0.0/0'
+      Egress: true
+      RuleAction: 'allow'
+      Protocol: -1
+
+  PublicNaclRuleHttpsIn:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 101
+      CidrBlock: '0.0.0.0/0'
+      Egress: false
+      RuleAction: 'allow'
+      Protocol: 6
+      PortRange:
+        From: 443
+        To: 443
+
+  PublicNaclRuleOpenVpnIn:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 102
+      CidrBlock: '0.0.0.0/0'
+      Egress: false
+      RuleAction: 'allow'
+      Protocol: 6
+      PortRange:
+        From: 943
+        To: 943
+
+  PublicNaclRuleSSHIn:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 103
+      CidrBlock: '0.0.0.0/0'
+      Egress: false
+      RuleAction: 'allow'
+      Protocol: 6
+      PortRange:
+        From: 22
+        To: 22
+
+  PublicNaclRuleEphemeralIn:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 150
+      CidrBlock: '0.0.0.0/0'
+      Egress: false
+      RuleAction: 'allow'
+      Protocol: 6
+      PortRange:
+        From: 1024
+        To: 65535
+        
+  PublicNaclRuleInternalUDP:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 200
+      CidrBlock: !GetAtt VPC.CidrBlock
+      Egress: false
+      RuleAction: 'allow'
+      Protocol: 17
+      PortRange:
+        From: 1024
+        To: 65535
+
+  PublicNaclRuleInternalTCP:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 250
+      CidrBlock: !GetAtt VPC.CidrBlock
+      Egress: false
+      RuleAction: 'allow'
+      Protocol: 6
+      PortRange:
+        From: 0
+        To: 65535
+
+  PublicSubnetCNaclAssoc:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnetC
+      NetworkNaclId: !Ref PublicNacl
+
+#### Private Subnet NAcl
+
+  PrivateNacl:
+    Type: 'AWS::EC2::NetworkAcl'
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateNaclRuleEgress:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PrivateNacl
+      RuleNumber: 100
+      CidrBlock: '0.0.0.0/0'
+      Egress: true
+      RuleAction: 'allow'
+      Protocol: -1
+
+  PrivateNaclRuleEphemeralIn:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PrivateNacl
+      RuleNumber: 150
+      CidrBlock: '0.0.0.0/0'
+      Egress: false
+      RuleAction: 'allow'
+      Protocol: 6
+      PortRange:
+        From: 1024
+        To: 65535
+        
+  PrivateNaclRuleInternalUDP:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PrivateNacl
+      RuleNumber: 200
+      CidrBlock: !GetAtt VPC.CidrBlock
+      Egress: false
+      RuleAction: 'allow'
+      Protocol: 17
+      PortRange:
+        From: 0
+        To: 65535
+
+  PrivateNaclRuleInternalTCP:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PrivateNacl
+      RuleNumber: 250
+      CidrBlock: !GetAtt VPC.CidrBlock
+      Egress: false
+      RuleAction: 'allow'
+      Protocol: 6
+      PortRange:
+        From: 0
+        To: 65535
+      
+#### Private Subnet A
+
+  PrivateSubnetA:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: 'us-west-2c'
+      CidrBlock: '172.17.128.0/19'
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: true
+
+  PrivateSubnetARTAssoc:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref PrivateSubnetA
+
+  PrivateSubnetANaclAssoc:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      NetworkNaclId: !Ref PrivateNacl
+
+#### Private Subnet B
+
+  PrivateSubnetB:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: 'us-west-2c'
+      CidrBlock: '172.17.160.0/19'
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: true
+
+  PrivateSubnetBRTAssoc:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref PrivateSubnetB
+
+  PrivateSubnetBNaclAssoc:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      NetworkNaclId: !Ref PrivateNacl
+
+#### Private Subnet C
+
+  PrivateSubnetC:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: 'us-west-2c'
+      CidrBlock: '172.17.192.0/19'
+      VpcId: !Ref VPC
+      MapPublicIpOnLaunch: true
+
+  PrivateSubnetCRTAssoc:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref PrivateSubnetC
+
+  PrivateSubnetCNaclAssoc:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnetC
+      NetworkNaclId: !Ref PrivateNacl
+
+#### Private Route Table
+
+  PrivateRT:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateRouteAll:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      RouteTableId: !Ref PrivateRT
+      NetworkInterfaceId: !Ref NatEni
+
+#### NAT instance for private subnet routing
+
+  NatEni:
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: !Ref PublicSubnetC
+      SourceDestCheck: false
+
+  NatEniAttach:
+    Type: 'AWS::EC2::NetworkInterfaceAttachment'
+    Properties:
+      NetworkInterfaceId: !Ref NatEni
+      InstanceId: !Ref NatInstance
+      DeviceIndex: 1
+
+  NatInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      AvailabilityZone: 'us-west-2c'
+      SubnetId: !Ref PublicSubnetC
+      ImageId: 'ami-8bfce8f2'
+      InstanceInitiatedShutdownBehavior: 'stop'
+      InstanceType: 't2.micro'
+      KeyName: 'bastion' # TODO: remove when instance is validated.
+      SecurityGroupIds: [ !Ref NatInstanceSG ]
+      SourceDestCheck: false
+      UserData: !Join [ '\n', [ '#!/bin/bash', 'yum update -y -y && yum install -y yum-cron && chkconfig yum-cron on'] ]
+
+  NatInstanceSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'NAT Instance SG'
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - CidrIp: '0.0.0.0/0'
+          IpProtocol: '-1'
+      SecurityGroupIngress:
+        - CidrIp: !GetAtt VPC.CidrBlock
+          IpProtocol: '-1'
+        - CidrIp: '0.0.0.0/0'  # TODO: can remove this after validation
+          IpProtocol: 'tcp'
+          FromPort: 22
+          ToPort: 22
+
+Outputs:
+  VpcId:
+    Description: 'ID of the dev service vpc'
+    Value: !Ref VPC
+    Export:
+      Name: !Join ['', [ !Ref 'AWS::StackName', 'VPC'] ]
+  PublicSubnetC:
+    Description: 'ID of the public subnet'
+    Value: !Ref PublicSubnetC
+    Export:
+      Name: !Join ['', [ !Ref 'AWS::StackName', 'PublicSubnetC'] ]
+  PrivateSubnetA:
+    Description: 'ID of the private subnet A'
+    Value: !Ref PrivateSubnetA
+    Export:
+      Name: !Join ['', [ !Ref 'AWS::StackName', 'PrivateSubnetA'] ]
+  PrivateSubnetB:
+    Description: 'ID of the private subnet A'
+    Value: !Ref PrivateSubnetB
+    Export:
+      Name: !Join ['', [ !Ref 'AWS::StackName', 'PrivateSubnetB'] ]
+  PrivateSubnetC:
+    Description: 'ID of the private subnet A'
+    Value: !Ref PrivateSubnetC
+    Export:
+      Name: !Join ['', [ !Ref 'AWS::StackName', 'PrivateSubnetC'] ]
+  NatInstanceId:
+    Description: "ID of the VPC's NAT instance"
+    Value: !Ref NatInstance
+    Export:
+      Name: !Join ['', [ !Ref 'AWS::StackName', 'NatInstance'] ]
