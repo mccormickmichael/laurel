@@ -66,12 +66,6 @@ resource "aws_security_group" "nat_sg" {
     protocol    = "-1"
     cidr_blocks = [ "${var.vpc_cidr_block}" ]
   }
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [ "0.0.0.0/0" ]
-  }
   egress {
     from_port   = 0
     to_port     = 0
@@ -91,7 +85,6 @@ resource "aws_instance" "nat" {
   subnet_id              = "${var.nat_subnet_id}"
   source_dest_check      = false
   iam_instance_profile   = "${aws_iam_instance_profile.nat_profile.id}"
-  key_name               = "bastion"
   user_data = <<EOF
 #!/bin/bash
 yum update -y && yum install -y yum-cron && chkconfig yum-cron on
