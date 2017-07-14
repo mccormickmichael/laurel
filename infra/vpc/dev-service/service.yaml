@@ -23,9 +23,16 @@ Resources:
       CidrBlock: '172.17.0.0/16'
       EnableDnsSupport: true
       EnableDnsHostnames: true
+      Tags:
+        - Key: 'Name'
+          Value: !Ref 'AWS::StackName'
 
   IGW:
     Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: 'Name'
+          Value: !Ref 'AWS::StackName'
 
   IGWAttach:
     Type: 'AWS::EC2::VPCGatewayAttachment'
@@ -39,6 +46,9 @@ Resources:
     Type: 'AWS::EC2::RouteTable'
     Properties:
       VpcId: !Ref VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '', [!Ref 'AWS::StackName', 'Public' ] ]
 
   PublicRouteAll:
     Type: 'AWS::EC2::Route'
@@ -56,6 +66,9 @@ Resources:
       CidrBlock: '172.17.0.0/19'
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: true
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '', [!Ref 'AWS::StackName', 'PublicC' ] ]
 
   PublicSubnetCRTAssoc:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
@@ -67,6 +80,9 @@ Resources:
     Type: 'AWS::EC2::NetworkAcl'
     Properties:
       VpcId: !Ref VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '', [!Ref 'AWS::StackName', 'Public' ] ]
 
   PublicNaclRuleEgress:
     Type: 'AWS::EC2::NetworkAclEntry'
@@ -160,7 +176,7 @@ Resources:
     Type: 'AWS::EC2::SubnetNetworkAclAssociation'
     Properties:
       SubnetId: !Ref PublicSubnetC
-      NetworkNaclId: !Ref PublicNacl
+      NetworkAclId: !Ref PublicNacl
 
 #### Private Subnet NAcl
 
@@ -168,6 +184,9 @@ Resources:
     Type: 'AWS::EC2::NetworkAcl'
     Properties:
       VpcId: !Ref VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '', [!Ref 'AWS::StackName', 'Private' ] ]
 
   PrivateNaclRuleEgress:
     Type: 'AWS::EC2::NetworkAclEntry'
@@ -226,7 +245,10 @@ Resources:
       AvailabilityZone: 'us-west-2c'
       CidrBlock: '172.17.128.0/19'
       VpcId: !Ref VPC
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '', [!Ref 'AWS::StackName', 'PrivateA' ] ]
 
   PrivateSubnetARTAssoc:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
@@ -238,7 +260,7 @@ Resources:
     Type: 'AWS::EC2::SubnetNetworkAclAssociation'
     Properties:
       SubnetId: !Ref PrivateSubnetA
-      NetworkNaclId: !Ref PrivateNacl
+      NetworkAclId: !Ref PrivateNacl
 
 #### Private Subnet B
 
@@ -248,7 +270,10 @@ Resources:
       AvailabilityZone: 'us-west-2c'
       CidrBlock: '172.17.160.0/19'
       VpcId: !Ref VPC
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '', [!Ref 'AWS::StackName', 'PrivateB' ] ]
 
   PrivateSubnetBRTAssoc:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
@@ -260,7 +285,7 @@ Resources:
     Type: 'AWS::EC2::SubnetNetworkAclAssociation'
     Properties:
       SubnetId: !Ref PrivateSubnetB
-      NetworkNaclId: !Ref PrivateNacl
+      NetworkAclId: !Ref PrivateNacl
 
 #### Private Subnet C
 
@@ -270,7 +295,10 @@ Resources:
       AvailabilityZone: 'us-west-2c'
       CidrBlock: '172.17.192.0/19'
       VpcId: !Ref VPC
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '', [!Ref 'AWS::StackName', 'PrivateC' ] ]
 
   PrivateSubnetCRTAssoc:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
@@ -282,7 +310,7 @@ Resources:
     Type: 'AWS::EC2::SubnetNetworkAclAssociation'
     Properties:
       SubnetId: !Ref PrivateSubnetC
-      NetworkNaclId: !Ref PrivateNacl
+      NetworkAclId: !Ref PrivateNacl
 
 #### Private Route Table
 
@@ -290,6 +318,9 @@ Resources:
     Type: 'AWS::EC2::RouteTable'
     Properties:
       VpcId: !Ref VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '', [!Ref 'AWS::StackName', 'Private' ] ]
 
   PrivateRouteAll:
     Type: 'AWS::EC2::Route'
@@ -305,6 +336,9 @@ Resources:
     Properties:
       SubnetId: !Ref PublicSubnetC
       SourceDestCheck: false
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '', [!Ref 'AWS::StackName', 'NatENI' ] ]
 
   NatEniAttach:
     Type: 'AWS::EC2::NetworkInterfaceAttachment'
@@ -324,7 +358,12 @@ Resources:
       KeyName: 'bastion' # TODO: remove when instance is validated.
       SecurityGroupIds: [ !Ref NatInstanceSG ]
       SourceDestCheck: false
-      UserData: !Join [ '\n', [ '#!/bin/bash', 'yum update -y -y && yum install -y yum-cron && chkconfig yum-cron on'] ]
+      UserData:
+        "Fn::Base64": !Join [ '\n', [ '#!/bin/bash', 'yum update -y -y && yum install -y yum-cron && chkconfig yum-cron on'] ]
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '', [!Ref 'AWS::StackName', 'Nat' ] ]
+            
 
   NatInstanceSG:
     Type: 'AWS::EC2::SecurityGroup'
@@ -341,6 +380,9 @@ Resources:
           IpProtocol: 'tcp'
           FromPort: 22
           ToPort: 22
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '', [!Ref 'AWS::StackName', 'Nat' ] ]
 
 Outputs:
   VpcId:
