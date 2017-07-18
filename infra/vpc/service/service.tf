@@ -1,11 +1,3 @@
-terraform {
-  backend "s3" {
-    bucket = "thousandleaves-artifacts"
-    key    = "terraform/service/vpc.tfstate"
-    region = "us-west-2"
-  }
-}
-
 variable "cidr_block" {
   description = "CIDR block to reserve for the VPC"
   type        = "string"
