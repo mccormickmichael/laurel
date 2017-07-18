@@ -21,6 +21,11 @@ variable "stack" {
   type        = "string"
 }
 
+variable "domain" {
+  description = "Domain name for the associated hosted zone"
+  type        = "string"
+}
+
 variable "_availability_zones" {
   type = "list"
   default = ["a", "b", "c"]
@@ -61,10 +66,10 @@ module "public_subnet" {
 # TODO: future public subnets B and C use cidr subnet indexes 1 and 2
 
 module "private_rt" {
-  source = "../modules/easy_private_rt"
-  vpc_id = "${module.vpc.vpc_id}"
-  prefix = "${var.prefix}"
-  stack  = "${var.stack}"
+  source        = "../modules/easy_private_rt"
+  vpc_id        = "${module.vpc.vpc_id}"
+  prefix        = "${var.prefix}"
+  stack         = "${var.stack}"
 }
 
 ## AARGH! Modules don't support `count`, so we make all 3 private subnets here manually.
@@ -106,13 +111,21 @@ module "private_subnet_c" {
 }
 
 module "nat" {
-  source   = "../modules/easy_nat"
+  source         = "../modules/easy_nat"
   vpc_id         = "${module.vpc.vpc_id}"
   vpc_cidr_block = "${var.cidr_block}"
   nat_subnet_id  = "${module.public_subnet.subnet_id}"
   private_rt_id  = "${module.private_rt.rt_id}"
   prefix         = "${var.prefix}"
   stack          = "${var.stack}"
+}
+
+module "dns" {
+  source  = "../modules/easy_private_zone"
+  domain  = "${var.domain}"
+  vpc_id  = "${module.vpc.vpc_id}"
+  prefix  = "${var.prefix}"
+  stack   = "${var.stack}"
 }
 
 output "vpc_id" {
@@ -141,4 +154,8 @@ output "private_rt_id" {
 
 output "nat_instance_id" {
   value = "${module.nat.nat_id}"
+}
+
+output "hosted_zone_id" {
+  value = "${module.dns.zone_id}"
 }
