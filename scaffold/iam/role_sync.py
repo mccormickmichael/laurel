@@ -7,6 +7,9 @@ from . import load_policy_map, create_user_arns, create_role_arns, matches_aws_p
 logger = logging.getLogger('laurel.iam.RoleSync')
 
 inline_cf_role_re = re.compile(r'[A-Za-z][A-Za-z0-9-]*-[A-Za-z0-9]+Role-[A-Z0-9]+')
+# TODO: find a way to match terraform-created roles so they can be ignored,
+#   OR: provide a "delete these roles if they exist file" and ONLY delete them.
+ignored_roles = ['ServiceNATInstanceRole', 'DevServiceNATInstanceRole']
 
 
 class RoleSync(object):
@@ -170,5 +173,6 @@ class RoleSync(object):
         return [
             r for r in roles if
             not r.name.lower().startswith('aws-') and    # exclude aws-generated roles
-            not inline_cf_role_re.match(r.name)  # exclude inline cloudformation roles
+            not inline_cf_role_re.match(r.name) and  # exclude inline cloudformation roles
+            r.name not in ignored_roles  # exclude explicitly-named roles
         ]
