@@ -1,0 +1,58 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'Peering between Private RTs from easy_vpc templates'
+
+Parameters:
+  OwningVPCStack:
+    Type: 'String'  # Too bad you can't type CF stacks
+    Description: 'The easy_vpc stack that contains the VPC that will own the peering connection'
+
+  TargetVPCStack:
+    Type: 'String'
+    Description: 'The easy_vpc stack that contains the VPC that will be peered'
+
+Resources:
+  
+  PeeringConnection:
+    Type: 'AWS::EC2::VPCPeeringConnection'
+    Properties:
+      VpcId:
+        'Fn::ImportValue':
+          !Sub '${OwningVPCStack}-VPC'
+      PeerVpcId:
+        'Fn::ImportValue':
+          !Sub '${TargetVPCStack}-VPC'
+      Tags:
+        - Key: 'Name'
+          Value: !Ref 'AWS::StackName'
+
+  RouteToTarget:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock:
+        'Fn::ImportValue':
+          !Sub '${TargetVPCStack}-PrivateCidrBlock'
+      RouteTableId:
+        'Fn::ImportValue':
+          !Sub '${OwningVPCStack}-PrivateRT'
+      VpcPeeringConnectionId: !Ref PeeringConnection
+      
+  RouteToOwner:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock:
+        'Fn::ImportValue':
+          !Sub '${OwningVPCStack}-PrivateCidrBlock'
+      RouteTableId:
+        'Fn::ImportValue':
+          !Sub '${TargetVPCStack}-PrivateRT'
+      VpcPeeringConnectionId: !Ref PeeringConnection
+
+Outputs:
+
+  PeeringConnection:
+    Description: 'VPC Peering Connection ID'
+    Value: !Ref PeeringConnection
+    Export:
+      Name: !Join [ '-', [ !Ref 'AWS::StackName', 'Peering' ] ]
