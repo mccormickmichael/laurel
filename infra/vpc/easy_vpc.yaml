@@ -411,6 +411,16 @@ Outputs:
     Value: !GetAtt VPC.CidrBlock
     Export:
       Name: !Join [ '-', [ !Ref 'AWS::StackName', 'CidrBlock'] ]
+  PrivateRouteTable:
+    Description: 'Private Route Table of the VPC'
+    Value: !Ref PrivateRT
+    Export:
+      Name: !Join [ '-', [ !Ref 'AWS::StackName', 'PrivateRT'] ]
+  PrivateCidr:
+    Description: 'Cidr block intersection of private subnets'
+    Value: !Join [ '.', [ !Ref CidrBlockPrefix, '128.0/17' ] ]
+    Export:
+      Name: !Join [ '-', [ !Ref 'AWS::StackName', 'PrivateCidrBlock'] ]
   PublicSubnetC:
     Description: 'ID of the public subnet'
     Value: !Ref PublicSubnetC
