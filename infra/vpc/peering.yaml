@@ -1,0 +1,67 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'Peering connection between private route tables in two VPCs'
+
+Parameters:
+  OwningVPC:
+    Type: 'AWS::EC2::VPC::Id'
+    Description: 'The VPC that owns the peering connection'
+
+  OwningPrivateRT:
+    Type: 'String'  # Too bad I can't type route tables or external stack resources
+    Description: 'The private Route Table of the owning VPC'
+
+  OwningRTCidrBlock:
+    Type: 'String'
+    Description: 'The Cidr Block for the route to the owning VPC'
+
+  TargetVPC:
+    Type: 'AWS::EC2::VPC::Id'
+    Description: 'The target VPC of the peering connection'
+
+  TargetPrivateRT:
+    Type: 'String'
+    Description: 'The private Route Table of the target VPC'
+
+  TargetRTCidrBlock:
+    Type: 'String'
+    Description: 'The Cidr Block for the route to the target VPC'
+
+
+Resources:
+  
+  PeeringConnection:
+    Type: 'AWS::EC2::VPCPeeringConnection'
+    Properties:
+      VpcId: !Ref OwningVPC
+      PeerVpcId: !Ref TargetVPC
+      Tags:
+        - Key: 'Name'
+          Value: !Ref 'AWS::StackName'
+        - Key: 'Owner'
+          Value: !Ref OwningVPC
+        - Key: 'Target'
+          Value: !Ref TargetVPC
+
+  RouteToTarget:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: !Ref TargetRTCidrBlock
+      RouteTableId: !Ref OwningPrivateRT
+      VpcPeeringConnectionId: !Ref PeeringConnection
+      
+  RouteToOwner:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: !Ref OwningRTCidrBlock
+      RouteTableId: !Ref TargetPrivateRT
+      VpcPeeringConnectionId: !Ref PeeringConnection
+
+Outputs:
+
+  PeeringConnection:
+    Description: 'VPC Peering Connection ID'
+    Value: !Ref PeeringConnection
+    Export:
+      Name: !Join [ '-', [ !Ref 'AWS::StackName', 'Peering' ] ]
