@@ -108,19 +108,6 @@ Resources:
         From: 443
         To: 443
 
-  PublicNaclRuleOpenVpnIn:
-    Type: 'AWS::EC2::NetworkAclEntry'
-    Properties:
-      NetworkAclId: !Ref PublicNacl
-      RuleNumber: 102
-      CidrBlock: '0.0.0.0/0'
-      Egress: false
-      RuleAction: 'allow'
-      Protocol: 6
-      PortRange:
-        From: 943
-        To: 943
-
   PublicNaclRuleSSHIn:
     Type: 'AWS::EC2::NetworkAclEntry'
     Properties:
@@ -133,6 +120,32 @@ Resources:
       PortRange:
         From: 22
         To: 22
+
+  PublicNaclRuleOpenVpnIn:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 110
+      CidrBlock: '0.0.0.0/0'
+      Egress: false
+      RuleAction: 'allow'
+      Protocol: 6
+      PortRange:
+        From: 943
+        To: 943
+
+  PublicNaclRuleOpenVpnUDP:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref PublicNacl
+      RuleNumber: 111
+      CidrBlock: '0.0.0.0/0'
+      Egress: false
+      RuleAction: 'allow'
+      Protocol: 17
+      PortRange:
+        From: 1194
+        To: 1194
 
   PublicNaclRuleEphemeralIn:
     Type: 'AWS::EC2::NetworkAclEntry'
