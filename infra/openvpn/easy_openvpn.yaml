@@ -1,0 +1,68 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'OpenVPN Server'
+
+Parameters:
+  VPCStack:
+    Type: 'String'
+    Description: 'The easy_vpc stack containing the VPC into which the server will be launched'
+
+Resources:
+
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'OpenVPN Server Security Group'
+      VpcId:
+        'Fn::ImportValue':
+          !Sub '${VPCStack}-VPC'
+      SecurityGroupEgress:
+        - CidrIp: '0.0.0.0/0'
+          IpProtocol: '-1'
+      SecurityGroupIngress:
+        - CidrIp:
+            'Fn::ImportValue':
+              !Sub '${VPCStack}-CidrBlock'
+          IpProtocol: '-1'
+        - CidrIp: '0.0.0.0/0'
+          IpProtocol: 'tcp'
+          FromPort: 943
+          ToPort: 943
+        - CidrIp: '0.0.0.0/0'
+          IpProtocol: 'tcp'
+          FromPort: 443
+          ToPort: 443
+        - CidrIp: '0.0.0.0/0'
+          IpProtocol: 'udp'
+          FromPort: 1194
+          ToPort: 1194
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '-', [ !Ref 'AWS::StackName', 'OpenVPN' ] ]
+
+
+  Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: false
+          SubnetId:
+            'Fn::ImportValue':
+              !Sub '${VPCStack}-PublicSubnetC'
+          DeviceIndex: 0
+          GroupSet: [ !Ref SecurityGroup ]
+      ImageId: 'ami-d10819a8'  # OpenVpn 2.1.9, 6-30-2017
+      InstanceType: 't2.micro'
+      SourceDestCheck: false
+      KeyName: bastion  # TODO: change key
+      Tags:
+        - Key: 'Name'
+          Value: !Join [ '-', [ !Ref 'AWS::StackName', 'OpenVPN' ] ]
+      # IamInstanceProfile - not needed atm
+      # UserData - not needed atm
+
+  EIP:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      InstanceId: !Ref Instance
