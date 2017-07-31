@@ -1,0 +1,17 @@
+{
+  "variables": {
+    "consul_version": "0.9.0",
+    "subnet": ""
+  }
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "region": "us-west-2",
+      "source_ami": "ami-6df1e514",
+      "instance_type": "t2.micro",
+      "ssh_username": "ec2-user",
+      "ami_name": "consul-server-{{user `consul_version`}}-{{timestamp}}",
+      "subnet_id": "{{user `subnet`}}"
+    }
+  ]
+}

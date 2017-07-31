@@ -1,0 +1,39 @@
+---
+
+provisioner:
+  name: chef_zero
+  # You may wish to disable always updating cookbooks in CI or other testing environments.
+  # For example:
+  #   always_update_cookbooks: <%= !ENV['CI'] %>
+  always_update_cookbooks: true
+
+verifier:
+  name: inspec
+
+platforms:
+  - name: ubuntu-16.04
+    driver:
+      name: vagrant
+  - name: ec2-amzn-20170301
+    driver:
+      name: ec2
+      image_id: ami-6df1e514
+      instance_type: t2.micro
+      region: us-west-2
+      subnet_id: subnet-093a8152  # yech. make this a variable
+      security_group_ids: [ 'sg-5515982f' ]  # make this a variable too
+      aws_ssh_key_id: infradev
+      tags:
+        Name: 'consul-image-test-kitchen'
+    transport:
+      ssh_key: ~/.aws/keys/infradev.pem
+      username: ec2-user
+
+suites:
+  - name: default
+    run_list:
+      - recipe[consul_image::default]
+    verifier:
+      inspec_tests:
+        - test/smoke/default
+    attributes:
