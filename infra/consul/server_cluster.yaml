@@ -1,0 +1,137 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: 'Consul server cluster'
+
+Parameters:
+  VPCStack:
+    Type: 'String'
+    Description: 'The easy_vpc stack that contains the VPC into which the server cluster will be built'
+
+  Image:
+    Type: 'String'
+    Description: 'The image ID to use for server instances'
+
+Resources:
+
+  SSHSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-SSH'
+      GroupDescription: 'SSH accces to consul servers'
+      VpcId:
+        'Fn::ImportValue':
+          !Sub '${VPCStack}-VPC'
+      SecurityGroupIngress:
+        - CidrIp: '0.0.0.0/0'  # TODO: restrict to VPC or VPN block
+          IpProtocol: 'tcp'
+          FromPort: 22
+          ToPort: 22
+      Tags:
+        - Key: 'Name'
+          Value: !Sub '${AWS::StackName}-SSH'
+
+  ServerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-Server'
+      GroupDescription: 'Communication with consul server instances'
+      VpcId:
+        'Fn::ImportValue':
+          !Sub '${VPCStack}-VPC'
+      Tags:
+        - Key: 'Name'
+          Value: !Sub '${AWS::StackName}-Server'
+
+  AgentSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-Agent'
+      GroupDescription: 'Communication from Consul agents to the server cluster'
+      VpcId:
+        'Fn::ImportValue':
+          !Sub '${VPCStack}-VPC'
+      SecurityGroupIngress:
+        - CidrIp: '0.0.0.0/0'  # TODO: refine?
+          FromPort: 8500
+          ToPort: 8500
+          IpProtocol: 'tcp'
+          
+      Tags:
+        - Key: 'Name'
+          Value: '${AWS::StackName}-Agent'
+
+  ServerSGIngressAgentRPC:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      GroupId: !Ref ServerSecurityGroup
+      SourceSecurityGroupId: !Ref AgentSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 8300
+      ToPort: 8300
+
+  ServerSGIngressSerfTCP:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      GroupId: !Ref ServerSecurityGroup
+      SourceSecurityGroupId: !Ref ServerSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 8301
+      ToPort: 8302
+      
+  ServerSGIngressSerfUDP:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      GroupId: !Ref ServerSecurityGroup
+      SourceSecurityGroupId: !Ref ServerSecurityGroup
+      IpProtocol: 'udp'
+      FromPort: 8301
+      ToPort: 8302
+
+  Instance1:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !Ref Image
+      IamInstanceProfile: TODO
+      InstanceInitiatedShutdownBehavior: 'stop'
+      InstanceType: 't2.micro'
+      KeyName: 'infradev'
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref Eni1
+          DeviceIndex: 0
+      UserData: TODO
+      Tags:
+        - Key: 'Name'
+          Value: !Sub '${AWS::StackName}-1'
+
+  Eni1:
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      Description: !Sub '${AWS::StackName}-1'
+      GroupSet: [ !Ref ServerSecurityGroup, !Ref AgentSecurityGroup, !Ref SSHSecurityGroup ]
+      SubnetId:
+        'Fn::ImportValue':
+          !Sub '${VPCStack}-PrivateSubnetA'
+      Tags:
+        - Key: 'Name'
+          Value: !Sub '${AWS::StackName}-1'
+
+  # roles/policies/instance profiles
+  # security groups
+  # 3 instances
+  # 3 enis
+  # cfn-init metadata?
+
+
+Outputs:
+  AgentSecurityGroup:
+    Description: 'Security Group for Consul Agents'
+    Value: !Ref AgentSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-AgentSG'
+
+  Server1Address:
+    Description: 'IP Address for Server 1'
+    Value: !GetAtt Eni1.PrimaryPrivateIpAddress
+    Export:
+      Name: !Sub '${AWS::StackName}-Server1'
