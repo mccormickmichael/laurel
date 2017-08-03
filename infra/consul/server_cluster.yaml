@@ -14,6 +14,43 @@ Parameters:
 
 Resources:
 
+  LogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '${AWS::StackName}-Consul'
+      RetentionInDays: 3
+
+  ServerInstanceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service: [ 'ec2.amazonaws.com' ]
+            Action: [ 'sts:AssumeRole' ]
+      Path: '/'
+      Policies:
+        - PolicyName: !Sub '${AWS::StackName}-Server'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: 'Allow'
+              Resource: [ 'arn:aws:logs:*' ]
+              Action:
+                - 'logs:CreateLogGroup'
+                - 'logs:CreateLogStream'
+                - 'logs:PutLogEvents'
+                - 'logs:DescribeLogStreams'
+    
+
+  ServerInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      InstanceProfileName: !Sub '${AWS::StackName}-Server'
+      Roles: [ !Ref ServerInstanceRole ]
+
   SSHSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -92,17 +129,78 @@ Resources:
     Type: 'AWS::EC2::Instance'
     Properties:
       ImageId: !Ref Image
-      IamInstanceProfile: TODO
+      IamInstanceProfile: !Ref ServerInstanceProfile
       InstanceInitiatedShutdownBehavior: 'stop'
       InstanceType: 't2.micro'
       KeyName: 'infradev'
       NetworkInterfaces:
         - NetworkInterfaceId: !Ref Eni1
           DeviceIndex: 0
-      UserData: TODO
+      UserData:
+        'Fn::Base64':
+          'Fn::Sub': |
+            #!/bin/bash
+            yum update -y && yum install -y yum-cron && chkconfig yum-cron on
+            /opt/aws/bin/cfn-init --region ${AWS::Region} --stack ${AWS::StackName} --resource Instance1 --configsets server --verbose
       Tags:
         - Key: 'Name'
           Value: !Sub '${AWS::StackName}-1'
+    Metadata:
+      'AWS::CloudFormation::Init':
+        configSets:
+          server: [ 'consul', 'cloudwatchlogs' ]
+        consul:
+          # assume we have built an AMI with consul and consul service installed. We just need to create the config file and start the service
+          files:
+            # TODO: change bootstrap_expect to 3 when clustered
+            '/etc/consul/consul.json':
+              content:
+                'Fn::Sub': |
+                  {
+                  datacenter="${AWS::Region}",
+                  data_dir="/var/lib/consul",
+                  log_level="INFO",
+                  server="true",
+                  bootstrap_expect=1,
+                  bind_addr="${Eni1.PrimaryPrivateIpAddress}",
+                  retry_join=[ "${Eni1.PrimaryPrivateIpAddress}" ]
+                  }
+              mode: '000644'
+              owner: 'consul'
+              group: 'consul'
+              encoding: 'plain'
+          services:
+            sysvinit:
+              consul:
+                enabled: true
+                ensureRunning: true
+                files: '/etc/consul/consul.json'
+        cloudwatchlogs:
+          files:
+            '/tmp/awslogs-agent-setup.py':
+              source: 'https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py'
+              mode: '000755'
+              owner: 'root'
+              group: 'root'
+            '/tmp/cwlogs.cfg':
+              content:
+                'Fn::Sub': |
+                  [general]
+                  state_file = /var/awslogs/agent-state
+
+                  [consul_agent]
+                  file = /var/log/consul
+                  datetime_format = %b %d %H:%M:%S
+                  log_group_name = ${LogGroup}
+                  log_stream_name = consul_server_1
+              mode: '000644'
+              owner: 'root'
+              group: 'root'
+          commands:
+            '50_cwlogs':
+              command:
+                'Fn::Sub': |
+                  python /tmp/awslogs-agent-setup.py -n -r ${AWS::Region} -c /tmp/cwlogs.cfg
 
   Eni1:
     Type: 'AWS::EC2::NetworkInterface'
@@ -116,11 +214,10 @@ Resources:
         - Key: 'Name'
           Value: !Sub '${AWS::StackName}-1'
 
-  # roles/policies/instance profiles
-  # security groups
+  # Log Group
+  # security groups ???
   # 3 instances
   # 3 enis
-  # cfn-init metadata?
 
 
 Outputs:

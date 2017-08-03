@@ -11,4 +11,3 @@ elsif node['platform_family'] == 'amazon' then
 end
 
 include_recipe 'consul_image::consul_wrapper'
-include_recipe 'consul_image::cloudwatch_logs'
