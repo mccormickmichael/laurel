@@ -1,7 +1,0 @@
-DEPENDENCIES
-  consul_image
-    path: .
-    metadata: true
-
-GRAPH
-  consul_image (0.1.0)
