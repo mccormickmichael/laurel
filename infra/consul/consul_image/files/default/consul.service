@@ -23,7 +23,7 @@
 
 agent="consul"
 user="root"
-exec="/opt/consul/agent/$agent"
+exec="/opt/consul/$agent"
 pidfile="/var/run/$agent.pid"
 lockfile="/var/lock/subsys/$agent"
 logfile="/var/log/$agent"

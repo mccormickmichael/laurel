@@ -1,7 +1,7 @@
 ---
 
 provisioner:
-  name: chef_zero
+  name: chef_solo
   # You may wish to disable always updating cookbooks in CI or other testing environments.
   # For example:
   #   always_update_cookbooks: <%= !ENV['CI'] %>
@@ -30,10 +30,10 @@ platforms:
       username: ec2-user
 
 suites:
-  - name: default
+  - name: server
     run_list:
-      - recipe[consul_image::default]
+      - recipe[consul_image::server]
+      - recipe[consul_image::save_attrs]
     verifier:
       inspec_tests:
-        - test/smoke/default
-    attributes:
+        - path: test/integration/agent

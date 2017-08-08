@@ -1,9 +1,9 @@
 {
-  "datacenter"="us-west-2",
-  "data_dir"="/var/lib/consul",
-  "log_level"="INFO",
-  "server"="true",
-  "bootstrap_expect"="1",
-  "bind_addr"="<%= @BLAH %>",
-  "retry_join"="<%= @BLAH %>"
+  "datacenter": "us-west-2",
+  "data_dir": "/var/lib/consul",
+  "log_level": "INFO",
+  "server": true,
+  "bootstrap_expect": 1,
+  "bind_addr": "<%=  @node['ipaddress'] %>",
+  "retry_join": [ "<%= @node['ipaddress'] %>" ]
 }

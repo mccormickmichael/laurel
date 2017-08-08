@@ -1,0 +1,15 @@
+[Unit]
+Description=Consul
+Wants=network.target
+After=network.target
+
+[Service]
+Environment="GOMAXPROCS=2" "PATH=/usr/local/bin:/usr/bin:/bin"
+ExecStart=/opt/consul/consul agent -config-dir=/opt/consul/config
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=INT
+User=root
+WorkingDirectory=/var/lib/consul
+
+[Install]
+WantedBy=multi-user.target

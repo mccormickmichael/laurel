@@ -1,34 +1,7 @@
 DEPENDENCIES
-  consul (= 3.0.0)
   consul_image
     path: .
     metadata: true
 
 GRAPH
-  build-essential (8.0.3)
-    mingw (>= 1.1)
-    seven_zip (>= 0.0.0)
-  consul (3.0.0)
-    build-essential (>= 0.0.0)
-    golang (>= 0.0.0)
-    nssm (>= 0.0.0)
-    poise (~> 2.2)
-    poise-archive (~> 1.3)
-    poise-service (~> 1.4)
   consul_image (0.1.0)
-    consul (>= 0.0.0)
-  golang (1.7.0)
-  mingw (2.0.1)
-    seven_zip (>= 0.0.0)
-  nssm (3.0.2)
-    windows (>= 0.0.0)
-  ohai (5.1.0)
-  poise (2.8.1)
-  poise-archive (1.5.0)
-    poise (~> 2.6)
-  poise-service (1.5.2)
-    poise (~> 2.0)
-  seven_zip (2.0.2)
-    windows (>= 1.2.2)
-  windows (3.1.1)
-    ohai (>= 4.0.0)

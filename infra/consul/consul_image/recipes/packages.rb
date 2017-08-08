@@ -1,7 +1,3 @@
-#
-# Cookbook:: consul_image
-# Recipe:: default
-
 if node['platform_family'] == 'debian' then
   apt_update
 elsif node['platform_family'] == 'amazon' then
@@ -10,4 +6,6 @@ elsif node['platform_family'] == 'amazon' then
   end
 end
 
-include_recipe 'consul_image::consul_wrapper'
+package 'unzip' do
+  package_name 'unzip'
+end

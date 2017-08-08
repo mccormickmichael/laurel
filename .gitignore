@@ -66,5 +66,9 @@ target/
 .terraform/
 terraform.tfstate.backup
 
+# Chef
+.kitchen/
+Berksfile.lock
+
 #OS X
 .DS_Store
