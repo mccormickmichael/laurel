@@ -27,6 +27,14 @@
       "run_list": [
         "consul_image::server"
       ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "#!/bin/sh -x",
+        "sudo rm /opt/consul/config/*",
+        "sudo rm -rf /var/lib/consul"
+      ]
     }
   ]
 }
