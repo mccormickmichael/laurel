@@ -1,0 +1,35 @@
+{
+  "variables": {
+    "chef_server_name": "",
+    "chef_server_endpoint": "",
+    "chef_organization": "default"
+  },
+  "builders": [{
+    "type": "amazon-ebs",
+    "name": "amzn-20170812",
+    "instance_type": "t2.micro",
+    "region": "us-west-2",
+    "source_ami": "ami-aa5ebdd2",
+    "ami_name": "base-ENV-{{timestamp}}",
+    "ami_description": "Base AMI for (ENV)",
+    "run_tags": {
+      "Name": "packer-base-ENV"
+    },
+    "ssh_username": "ec2-user",
+    "subnet_id": "subnet-093a8152",
+    "tags": {
+      "SourceAMI": "{{.SourceAMI}}"
+    },
+    "vpc_id": "vpc-0601d760"
+  }],
+  "provisioners": [
+    {
+      "type": "chef-solo",
+      "cookbook_paths": [ "cookbooks" ],
+      "json": {
+        "chef_server_name": "{{user `chef_server_name`}}",
+        "chef_server_endpoint": "{{user `chef_server_endpoint`}}",
+        "chef_organization": "{{user `chef_organization`}}"
+      }
+    }]
+}

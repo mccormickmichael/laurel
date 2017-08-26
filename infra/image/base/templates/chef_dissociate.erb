@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# see http://docs.aws.amazon.com/opsworks/latest/userguide/opscm-unattend-assoc.html
+
+REGION="us-west-2"
+
+# TODO: these won't change much if ever. Consider applying them at AMI bake time
+CHEF_SERVER_NAME="<%= @chef_server_name %>"
+CHEF_SERVER_ENDPOINT="<%= @chef_server_endpoint %>"
+
+# TODO: parameters for bootstrapping. These would be different per instance.
+#       make them optional parameters with sensible defaults
+NODE_NAME="$(curl --silent --show-error --retry 3 http://169.254.169.254/latest/meta-data/instance-id)"
+CHEF_ORGANIZATION="<%= @chef_organization %>"
+
+AWS_CMD="$(which aws)"
+
+# ---------------------------
+set -e -o pipefail
+
+CHEF_CA_PATH="/etc/chef/opsworks-cm-ca-2016-root.pem"
+
+aws_opsworks() {
+  $AWS_CMD opsworks-cm --region "${REGION}" --output text "$@" --server-name "${CHEF_SERVER_NAME}"
+}
+
+disassociate_node() {
+  aws_opsworks disassociate-node \
+    --node-name "${NODE_NAME}" \
+    --engine-attributes "Name=CHEF_ORGANIZATION,Value=${CHEF_ORGANIZATION}"
+}
+
+disassociate_node
+
+
