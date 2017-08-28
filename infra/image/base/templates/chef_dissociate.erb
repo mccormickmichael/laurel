@@ -2,18 +2,20 @@
 
 # see http://docs.aws.amazon.com/opsworks/latest/userguide/opscm-unattend-assoc.html
 
+AWS_CMD="$(which aws)"
+
 REGION="us-west-2"
 
-# TODO: these won't change much if ever. Consider applying them at AMI bake time
 CHEF_SERVER_NAME="<%= @chef_server_name %>"
 CHEF_SERVER_ENDPOINT="<%= @chef_server_endpoint %>"
 
-# TODO: parameters for bootstrapping. These would be different per instance.
-#       make them optional parameters with sensible defaults
+# Default values for parameters
+# TODO: bootstrap could write these to a file and we could read them
+#       so they don't need to be specified again
 NODE_NAME="$(curl --silent --show-error --retry 3 http://169.254.169.254/latest/meta-data/instance-id)"
 CHEF_ORGANIZATION="<%= @chef_organization %>"
 
-AWS_CMD="$(which aws)"
+[[ -f /opt/thousandleaves/instance-parms.sh ]] && . /opt/thousandleaves/instance-parms.sh
 
 # ---------------------------
 set -e -o pipefail

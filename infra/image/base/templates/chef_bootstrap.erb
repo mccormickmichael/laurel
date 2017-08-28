@@ -2,23 +2,43 @@
 
 # see http://docs.aws.amazon.com/opsworks/latest/userguide/opscm-unattend-assoc.html
 
+AWS_CMD="$(which aws)"
+
 REGION="us-west-2"
 
-# TODO: these won't change much if ever. Consider applying them at AMI bake time
+CHEF_CLIENT_VERSION="12.20.3"
+
 CHEF_SERVER_NAME="<%= @chef_server_name %>"
 CHEF_SERVER_ENDPOINT="<%= @chef_server_endpoint %>"
 
-# TODO: parameters for bootstrapping. These would be different per instance.
-#       make them optional parameters with sensible defaults
+# Instance parameters for bootstrapping. Sensible defaults provided.
 NODE_NAME="$(curl --silent --show-error --retry 3 http://169.254.169.254/latest/meta-data/instance-id)"
 CHEF_ORGANIZATION="<%= @chef_organization %>"
-NODE_ENVIRONMENT=""            # E.g. development, staging, onebox ...
-CHEF_CLIENT_VERSION="12.20.3" # latest if empty
 
-# TODO: each instance will probably want to add additional run-list entries
-RUN_LIST="recipe[base]"
 
-AWS_CMD="$(which aws)"
+while [[ $# -gt 1 ]]; do
+    key=$1
+
+    case $key in
+        -n|--node)
+            NODE_NAME="$2"
+            shift
+            ;;
+        -o|--org)
+            ORGANIZATION="$2"
+            shift
+            ;;
+        *)
+            ;;
+    esac
+    shift
+done
+
+# Write instance parameters for dissociate.sh to consume
+cat > /opt/thousandleaves/instance-parms.sh <<EOF
+NODE_NAME=$NODE_NAME
+ORGANIZATION=$ORGANIZATION
+EOF
 
 # ---------------------------
 set -e -o pipefail
@@ -63,17 +83,10 @@ wait_node_associated() {
   aws_opsworks wait node-associated --node-association-status-token "$1"
 }
 
-# install_aws_cli
 node_association_status_token="$(associate_node)"
 install_chef_client
 write_chef_config
 install_trusted_certs
 wait_node_associated "${node_association_status_token}"
-
-if [ -z "${NODE_ENVIRONMENT}" ]; then
-  chef-client -r "${RUN_LIST}"
-else
-  chef-client -r "${RUN_LIST}" -E "${NODE_ENVIRONMENT}"
-fi
 
 

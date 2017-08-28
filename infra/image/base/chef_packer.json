@@ -24,8 +24,14 @@
   }],
   "provisioners": [
     {
+      "type": "shell",
+      "inline": [
+        "sudo pip install --upgrade awscli"
+      ]
+    }, {
       "type": "chef-solo",
-      "cookbook_paths": [ "cookbooks" ],
+      "cookbook_paths": [ ".." ],
+      "run_list": [ "recipe[base::default]" ],
       "json": {
         "chef_server_name": "{{user `chef_server_name`}}",
         "chef_server_endpoint": "{{user `chef_server_endpoint`}}",
