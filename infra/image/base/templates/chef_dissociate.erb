@@ -2,6 +2,8 @@
 
 # see http://docs.aws.amazon.com/opsworks/latest/userguide/opscm-unattend-assoc.html
 
+__DIR__="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 AWS_CMD="$(which aws)"
 
 REGION="us-west-2"
@@ -15,7 +17,7 @@ CHEF_SERVER_ENDPOINT="<%= @chef_server_endpoint %>"
 NODE_NAME="$(curl --silent --show-error --retry 3 http://169.254.169.254/latest/meta-data/instance-id)"
 CHEF_ORGANIZATION="<%= @chef_organization %>"
 
-[[ -f /opt/thousandleaves/instance-parms.sh ]] && . /opt/thousandleaves/instance-parms.sh
+[[ -f "${__DIR__}/instance-parms.sh" ]] && . "${__DIR__}/instance-parms.sh"
 
 # ---------------------------
 set -e -o pipefail

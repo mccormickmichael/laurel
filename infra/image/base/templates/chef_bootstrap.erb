@@ -2,6 +2,8 @@
 
 # see http://docs.aws.amazon.com/opsworks/latest/userguide/opscm-unattend-assoc.html
 
+__DIR__="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 AWS_CMD="$(which aws)"
 
 REGION="us-west-2"
@@ -35,7 +37,7 @@ while [[ $# -gt 1 ]]; do
 done
 
 # Write instance parameters for dissociate.sh to consume
-cat > /opt/thousandleaves/instance-parms.sh <<EOF
+cat > "${__DIR__}/instance-parms.sh" <<EOF
 NODE_NAME=$NODE_NAME
 ORGANIZATION=$ORGANIZATION
 EOF
