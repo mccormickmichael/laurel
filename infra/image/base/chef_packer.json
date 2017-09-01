@@ -10,10 +10,10 @@
     "instance_type": "t2.micro",
     "region": "us-west-2",
     "source_ami": "ami-aa5ebdd2",
-    "ami_name": "base-ENV-{{timestamp}}",
-    "ami_description": "Base AMI for (ENV)",
+    "ami_name": "base-{{user `chef_server_name`}}-{{timestamp}}",
+    "ami_description": "Base AMI for instances configured by Chef {{user `chef_server_name`}}",
     "run_tags": {
-      "Name": "packer-base-ENV"
+      "Name": "packer-base-{{user `chef_server_name`}}"
     },
     "ssh_username": "ec2-user",
     "subnet_id": "subnet-093a8152",

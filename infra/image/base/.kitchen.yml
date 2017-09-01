@@ -11,9 +11,6 @@ verifier:
   name: inspec
 
 platforms:
-  - name: ubuntu-14.04
-    driver:
-      name: vagrant
   - name: ec2-amzn-20170812
     driver:
       name: ec2
