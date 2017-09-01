@@ -1,7 +1,7 @@
 {
   "variables": {
-    "chef_server_name": "",
-    "chef_server_endpoint": "",
+    "chef_server_name": "lindome",
+    "chef_server_endpoint": "https://lindome-9tnbm5n4msrziikc.us-west-2.opsworks-cm.io",
     "chef_organization": "default"
   },
   "builders": [{
