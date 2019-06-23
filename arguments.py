@@ -3,17 +3,17 @@ default_region_name = 'us-west-2'
 default_deploy_s3_bucket = 'thousandleaves-us-west-2-laurel-deploy'
 default_deploy_s3_key_prefix = 'scaffold'
 
+
 deploy_s3_bucket_help = 'Name of the S3 bucket to which stack template files are uploaded.'
-deploy_s3_key_prefix_help = 'Prefix to use when uploading stack template files to the bucket.'
+deploy_s3_key_prefix_help = 'Prefix to use when uploading stack template files to the bucket. Also here is a very long line that should trigger pyflakes or pylint'
 
 role_help = 'Role, if any, to assume when performing actions'
 profile_help = 'AWS Credential and Config profile to use.'
 region_help = 'Region to connect to. Required if profile is specified.'
 dry_run_help = 'Report on what would have happened. Take no mutable action.'
 
-
 def add_deployment_group(argparser,
-                         default_deploy_bucket=default_deploy_s3_bucket,
+                         default_deploy_bucket = default_deploy_s3_bucket,
                          default_deploy_key_prefix=default_deploy_s3_key_prefix,
                          use_defaults=True):
     group = argparser.add_argument_group('Deployment')

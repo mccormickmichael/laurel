@@ -174,5 +174,6 @@ class RoleSync(object):
             r for r in roles if
             not r.name.lower().startswith('aws-') and    # exclude aws-generated roles
             not inline_cf_role_re.match(r.name) and  # exclude inline cloudformation roles
+            not r.name.lower().startswith('experiment-') and  # exclude experiments
             r.name not in ignored_roles  # exclude explicitly-named roles
         ]
